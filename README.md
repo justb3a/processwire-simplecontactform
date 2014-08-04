@@ -1,19 +1,14 @@
-# ProcessWire SimpleContactForm module
+# ProcessWire SimpleContactForm
 
-Overview:
-=========
+## Overview:
 
 Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.
 See the instructions here: [TemplateTwigReplace](http://modules.processwire.com/modules/template-twig-replace)
 
 Designed for use with ProcessWire 2.4
-http://processwire.com
 [http://processwire.com](http://processwire.com)
 
-https://github.com/justonestep/processwire-simplecontactform
-
-Installation and Usage:
-=======================
+## Installation and Usage:
 
 1. Clone the module and place SimpleContactForm in your site/modules/ directory. 
 
