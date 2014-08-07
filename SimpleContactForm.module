@@ -203,18 +203,25 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 			// add form
 			$form = $this->buildForm();
 
-			// prepare error message
-			$errorMessage = array(
+			// combine template parts
+			$content = array(
+				'<div class="">',
+				'{% if input.success %}',
+				'<p class="success">{{input.success}}</p>',
+				'{% else %}',
+				$form->render(),
 				"\n\n" . '{% if input.error %}',
 				'<p class="error">' . $this->errorMessage . '</p>',
-				'{% endif %}'
+				'{% endif %}',
+				'{% endif %}',
+				'</div>'
 			);
 
 			// create template file
 			$twigname = getcwd() . '/site/templates/simple_contact_form.twig';
 			$twig = fopen($twigname, 'w');
 			chmod($twigname, 0766);
-			fwrite($twig, $form->render() . implode("\n", $errorMessage));
+			fwrite($twig, implode("\n", $content));
 			fclose($twig);
 
 			if (!file_exists($twigname)) {
@@ -235,20 +242,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 	public function ___render() {
 		if (!$this->contactPage->template) throw new WireException("No Template was found.");
 
-		// if the form has been submitted, then just return the rendered form.
-		if ($this->input->post->submit) {
-			$sent = $this->sendMail();
+		// validate form and send mail
+		if (!empty($this->input->post->submitted)) {
+			$this->sendMail();
 		}
 
-		// check if there are some errors
-		if (isset($sent) && $sent === true) {
-			// everything is fine
-			// display success message
-			return $this->data['successMessage'];
-		} else {
-			// initial view as well as errors occured
-			return $this->contactPage->render();
-		}
+		return $this->contactPage->render();
 	}
 
     /**
@@ -256,9 +255,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
      *
      */
 	public function ___sendMail() {
-		$sent = false;
 		$error = false;
-		$emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
 
 		// sanitize form values
 		$form = array();
@@ -277,34 +274,30 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		// if the form was submitted ...
-		// send mail!
-		if ($this->input->post->submit) {
-			// validate required/email fields
-			// email fields do not need to be validated here, sanitizer does that already!
-			foreach ($form as $field => $value) {
-				if (empty($value)) {
-					$error = true;
-					continue;
-				}
-			}
-
-			// no errors - send mail
-			if ($error === false) {
-				$message = array();
-				foreach ($this->allFields as $inputfield) {
-					$message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
-				}
-
-				$header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
-
-				mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
-				$sent = true;
+		// validate required/email fields
+		// email fields do not need to be validated here, sanitizer does that already!
+		foreach ($form as $field => $value) {
+			if (empty($value)) {
+				$error = true;
+				continue;
 			}
 		}
 
-		$this->input->post->error = ($sent === true) ? false : true;
-		return $sent;
+		// no errors - send mail
+		if ($error === false) {
+			$emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
+			$message = array();
+			foreach ($this->allFields as $inputfield) {
+				$message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
+			}
+
+			$header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
+
+			mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
+			$this->input->post->success = $this->data['successMessage'];
+		}
+
+		$this->input->post->error = $error;
 	}
 
 	/**
@@ -316,6 +309,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 		$form = $this->modules->get("InputfieldForm");
 		$form->method = 'post';
 		$form->action = './';
+		$form->class = 'js-simple_contact_form';
 
 		// add the fields as simple input fields to the form
 		foreach ($this->allFields as $inputfield) {
@@ -326,6 +320,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 			if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
 			$form->add($singleField);
 		}
+
+		// add hidden field to track wheater the form was submitted
+		$hiddenField = $this->modules->get('InputfieldHidden');
+		$hiddenField->name = 'submitted';
+		$hiddenField->initValue = '1';
+		$form->add($hiddenField);
 
 		// add a submit button
 		$submit = $this->modules->get("InputfieldSubmit");
