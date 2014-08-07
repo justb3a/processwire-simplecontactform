@@ -35,8 +35,9 @@ emailField: email
 
 These fields will be rendered automatically.
 Therefore a new template called `simple_contact_form.twig` will be created in your site/templates directory.
-All fields in this new template will be simple inputs temporarily,.
-Once created you can/should modify the template as well as the fields to your own needs, just make sure to maintain the names of the fields.
+All fields in this new template will be simple inputs temporarily.
+Once created you can/should modify the template as well as the fields to your own needs, 
+just make sure to maintain the names of the fields.
 
 6. Create a template for your contact form page (if you don't already have one).
 7. Add the fields you want to use to this template as you are used to.
@@ -45,3 +46,19 @@ Once created you can/should modify the template as well as the fields to your ow
 ```
 {{modules.get('SimpleContactForm').render()}}
 ```
+
+9. If you want to send the form via ajax, include jquery.simplecontactform.js and call it:
+
+```
+if ($('.js-simplecontactform').length) {
+	$.simplecontactform($('.js-simplecontactform'));
+}
+```
+
+To get just the necessary part, modify yout template like this:
+
+{% if config.ajax %}
+	{{modules.get('SimpleContactForm').render()}}
+{% else %}
+	{# normal stuff ... #}
+{% endif %}
