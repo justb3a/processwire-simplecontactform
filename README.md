@@ -57,8 +57,10 @@ if ($('.js-simplecontactform').length) {
 
 To get just the necessary part, modify yout template like this:
 
+```
 {% if config.ajax %}
 	{{modules.get('SimpleContactForm').render()}}
 {% else %}
 	{# normal stuff ... #}
 {% endif %}
+```
