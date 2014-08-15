@@ -51,7 +51,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 1,
+      'version' => 2,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => false,
@@ -194,14 +194,17 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     // convert comma separated values to array
     $this->requiredFields = explode(',', $this->requiredFields);
+    $this->allFieldsExtended = explode(',', $this->allFields . ',date');
     $this->allFields = explode(',', $this->allFields);
+    $this->pageName = 'scf-messages';
+    $this->repeaterName = 'repeater_scfmessages';
 
     // create a new template for contactPage
     $tName = $this->createContactPage();
 
     // check whater to save the received messages
     if (!empty($this->saveMessages)) {
-      $this->saveReceivedMessages();
+      $this->createReceivedMessagesPage();
     }
   }
 
@@ -253,18 +256,39 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       }
     }
 
-    // no errors - send mail
+    // no errors - send mail and save message in database
     if ($error === false) {
       $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
+      $date = date('d.m.Y - H:i');
+
       $message = array();
       foreach ($this->allFields as $inputfield) {
         $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
       }
+      $message[] = 'Date: ' . $date;
 
       $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
 
       mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
       $this->input->post->success = $this->data['successMessage'];
+
+      // edit page
+      if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
+        $page = $this->pages->findOne('name=' . $this->pageName);
+        $newEntry = $page->{$this->repeaterName}->getNew();
+
+        foreach ($this->allFields as $inputfield) {
+          $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+        }
+        $newEntry->scf_date = $date;
+
+        $newEntry->save();
+        $page->setOutputFormatting(false);
+        $page->save(); 
+      }
+
+      // don't send mail twice, deactivate condition
+      $this->input->post->submitted = NULL;
     }
 
     $this->input->post->error = $error;
@@ -368,48 +392,69 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   * create a page for holding the received messages
   *
   */
-  protected function ___saveReceivedMessages() {
+  protected function ___createReceivedMessagesPage() {
     $templateName = 'simple_contact_form_messages';
-    $pageName = 'scf-messages';
 
     if (!$this->templates->get($templateName) instanceof Template) {
-      // first create repeater field
+      // create repeater field
       $repeaterField = $this->createRepeater();
 
-      // second: create fieldgroup
+      // create fieldgroup
       $fg = new Fieldgroup();
       $fg->name = $templateName;
       $fg->add($this->fields->get('title')); // needed title field
       $fg->add($repeaterField); // needed title field
       $fg->save();
 
-      // third: create new template
+      // create new template
       $t = new Template();
       $t->name = $templateName;
       $t->fieldgroup = $fg; // add the fieldgroup
       $t->noChildren = 1;
       $t->save();
 
-      // fourth: create page
+      // create page
       $p = new Page();
       $p->template = $t;
-      $p->parent = wire('pages')->get('/');
-      $p->name = $pageName;
-      $p->title = $pageName;
+      $p->parent = $this->pages->get('/');
+      $p->name = $this->pageName;
+      $p->title = $this->pageName;
       $p->addStatus(Page::statusHidden);
       $p->addStatus(Page::statusLocked);
       $p->save();
 
+      $table = array(
+        'head' => array(),
+        'content' => array()
+      );
+
+      foreach($this->allFieldsExtended as $inputfield) {
+        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
+
+        if ($inputfield === $this->emailField) {
+          $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
+        } else {
+          $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
+        }
+      }
+
       $content = array(
         '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
         '<h1>{{currentPage.title}}</h1>',
+        '<table>',
+        '<thead>',
+        '<tr>',
+        implode("\n", $table['head']),
+        '</tr>',
+        '</thead>',
+        '<tbody>',
         '{% for message in currentPage.' . $repeaterField->name . ' %}',
-        '<ul>',
-        '{% for entry in message %}',
-        '<li>{{ entry }}</li>',
+        '<tr>',
+        implode("\n", $table['content']),
+        '</tr>',
         '{% endfor %}',
-        '</ul>',
-        '{% endfor %}'
+        '</tbody>',
+        '</table>'
       );
 
       // create template file
@@ -425,17 +470,15 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     }
   }
 
- /**
-	 * Creates a repeater field with associated fieldgroup, template, and page
-	 *
-	 * @return Returns the new Repeater field
-	 *
-	 */
-	public function ___createRepeater() {
-    $repeaterName = 'repeater_scfmessages';
-
+  /**
+   * Creates a repeater field with associated fieldgroup, template, and page
+   *
+   * @return Returns the new Repeater field
+   *
+   */
+  public function ___createRepeater() {
     // create fields for repeater
-    foreach ($this->allFields as $name) {
+    foreach ($this->allFieldsExtended as $name) {
       $f = new Field();
       $f->type = $this->modules->get('FieldtypeText');
       $f->name = 'scf_' . $name;
@@ -444,49 +487,49 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     }
 
     // create field
-		$repeaterField = new Field();
-		$repeaterField->type = $this->modules->get("FieldtypeRepeater");
-		$repeaterField->name = $repeaterName;
-		$repeaterField->label = 'SCF - ' . $repeaterName;
-		$repeaterField->repeaterReadyItems = 3;
+    $repeaterField = new Field();
+    $repeaterField->type = $this->modules->get("FieldtypeRepeater");
+    $repeaterField->name = $this->repeaterName;
+    $repeaterField->label = 'SCF - ' . $this->repeaterName;
+    $repeaterField->repeaterReadyItems = 3;
 
-		// create fieldgroup
-		$repeaterFg = new Fieldgroup();
-		$repeaterFg->name = 'repeater_' . $repeaterName;
+    // create fieldgroup
+    $repeaterFg = new Fieldgroup();
+    $repeaterFg->name = 'repeater_' . $this->repeaterName;
 
-		// add fields to fieldgroup
-		foreach($this->allFields as $field) {
-			$repeaterFg->append($this->fields->get('scf_' . $field));
-		}
+    // add fields to fieldgroup
+    foreach($this->allFieldsExtended as $field) {
+      $repeaterFg->append($this->fields->get('scf_' . $field));
+    }
 
-		$repeaterFg->save();
+    $repeaterFg->save();
 
-		// create template
-		$repeaterT = new Template();
-		$repeaterT->name = 'repeater_' . $repeaterName;
-		$repeaterT->noChildren = 1;
-		$repeaterT->noParents = 1;
-		$repeaterT->noGlobal = 1;
-		$repeaterT->slashUrls = 1;
+    // create template
+    $repeaterT = new Template();
+    $repeaterT->name = 'repeater_' . $this->repeaterName;
+    $repeaterT->noChildren = 1;
+    $repeaterT->noParents = 1;
+    $repeaterT->noGlobal = 1;
+    $repeaterT->slashUrls = 1;
     $repeaterT->flags = 8;
-		$repeaterT->fieldgroup = $repeaterFg;
+    $repeaterT->fieldgroup = $repeaterFg;
 
-		$repeaterT->save();
+    $repeaterT->save();
 
-		// setup page for the repeater
-		$repeaterPage = 'for-field-' . $repeaterField->id;
-		$repeaterField->parent_id = $this->pages->get('name=' . $repeaterPage)->id;
-		$repeaterField->template_id = $repeaterT->id;
-		$repeaterField->repeaterReadyItems = 3;
+    // setup page for the repeater
+    $repeaterPage = 'for-field-' . $repeaterField->id;
+    $repeaterField->parent_id = $this->pages->get('name=' . $repeaterPage)->id;
+    $repeaterField->template_id = $repeaterT->id;
+    $repeaterField->repeaterReadyItems = 3;
 
-		// now, add the fields directly to the repeater field
-		foreach($this->allFields as $field) {
-			$repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
-		}
+    // now, add the fields directly to the repeater field
+    foreach($this->allFieldsExtended as $field) {
+      $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
+    }
 
-		$repeaterField->save();
+    $repeaterField->save();
 
     return $repeaterField;
-	}
+  }
 
 }
