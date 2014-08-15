@@ -189,6 +189,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $this->templates = wire('templates');
     $this->input = wire('input');
     $this->sanitizer = wire('sanitizer');
+    $this->pages = wire('pages');
+    $this->modules = wire('modules');
 
     // convert comma separated values to array
     $this->requiredFields = explode(',', $this->requiredFields);
@@ -305,13 +307,13 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-  * create a page for holding the form fields 
+  * create a page for holding the form fields
   *
   */
   protected function ___createContactPage() {
     $this->contactPage = new Page();
 
-    // create a new template for contactPage 
+    // create a new template for contactPage
     $tName = 'simple_contact_form';
     if (!$this->templates->get($tName) instanceof Template) {
       // new fieldgroup
@@ -367,10 +369,104 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   *
   */
   protected function ___saveReceivedMessages() {
-    // first: create necessary fields
+    $templateName = 'scf-messages';
+    $repeaterName = 'repeater_scfmessages';
+    $pageName = 'scf-messages';
 
+    if (!$this->templates->get($templateName) instanceof Template) {
+      // first create repeater field
+      $repeaterField = $this->createRepeater();
 
-    // second: create fieldgroup and page
+      // second: create fieldgroup
+      $fg = new Fieldgroup();
+      $fg->name = $templateName;
+      $fg->add($this->fields->get('title')); // needed title field
+      $fg->add($repeaterField); // needed title field
+      $fg->save();
+
+      // third: create new template
+      $t = new Template();
+      $t->name = $templateName;
+      $t->fieldgroup = $fg; // add the fieldgroup
+      $t->noChildren = 1;
+      $t->save();
+
+      // fourth: create page
+      $p = new Page();
+      $p->template = $t;
+      $p->parent = wire('pages')->get('/');
+      $p->name = $pageName;
+      $p->title = $pageName;
+      $p->addStatus(Page::statusUnpublished);
+      $p->addStatus(Page::statusHidden);
+      $p->addStatus(Page::statusLocked);
+      $p->save();
+    }
   }
+
+ /**
+	 * Creates a repeater field with associated fieldgroup, template, and page
+	 *
+	 * @param string $repeaterName The name of your repeater field
+	 * @return Returns the new Repeater field
+	 *
+	 */
+	public function ___createRepeater() {
+    $repeaterName = 'repeater_scfmessages';
+
+    // create fields for repeater
+    foreach ($this->allFields as $name) {
+      $f = new Field();
+      $f->type = $this->modules->get('FieldtypeText');
+      $f->name = 'scf_' . $name;
+      $f->label = 'SCF - ' . ucfirst($name);
+      $f->save();
+    }
+
+    // create field
+		$repeaterField = new Field();
+		$repeaterField->type = $this->modules->get("FieldtypeRepeater");
+		$repeaterField->name = $repeaterName;
+		$repeaterField->label = 'SCF - ' . $repeaterName;
+		$repeaterField->repeaterReadyItems = 3;
+
+		// create fieldgroup
+		$repeaterFg = new Fieldgroup();
+		$repeaterFg->name = 'repeater_' . $repeaterName;
+
+		// add fields to fieldgroup
+		foreach($this->allFields as $field) {
+			$repeaterFg->append($this->fields->get('scf_' . $field));
+		}
+
+		$repeaterFg->save();
+
+		// create template
+		$repeaterT = new Template();
+		$repeaterT->name = 'repeater_' . $repeaterName;
+		$repeaterT->noChildren = 1;
+		$repeaterT->noParents = 1;
+		$repeaterT->noGlobal = 1;
+		$repeaterT->slashUrls = 1;
+    $repeaterT->flags = 8;
+		$repeaterT->fieldgroup = $repeaterFg;
+
+		$repeaterT->save();
+
+		// setup page for the repeater
+		$repeaterPage = 'for-field-' . $repeaterField->id;
+		$repeaterField->parent_id = $this->pages->get('name=' . $repeaterPage)->id;
+		$repeaterField->template_id = $repeaterT->id;
+		$repeaterField->repeaterReadyItems = 3;
+
+		// now, add the fields directly to the repeater field
+		foreach($this->allFields as $field) {
+			$repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
+		}
+
+		$repeaterField->save();
+
+    return $repeaterField;
+	}
 
 }
