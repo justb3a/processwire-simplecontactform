@@ -1,338 +1,376 @@
 <?php
 
 /**
- *
- * By Tabea David
- *
- */
+*
+* By Tabea David
+*
+*/
 
 /**
- *
- * SimpleContactForm
- *
- * See README.md for usage instructions.
- *
- * @author Tabea David <info@justonestep.de>
- * @version 0.0.2
- * @copyright Copyright (c) 2014
- * @see https://github.com/justonestep/processwire-simplecontactform
- * @see http://www.processwire.com
- */
+*
+* SimpleContactForm
+*
+* See README.md for usage instructions.
+*
+* @author Tabea David <info@justonestep.de>
+* @version 0.0.2
+* @copyright Copyright (c) 2014
+* @see https://github.com/justonestep/processwire-simplecontactform
+* @see http://www.processwire.com
+*/
 
 /**
- * Class SimpleContactForm
- */
+* Class SimpleContactForm
+*/
 class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
-    /**
-     * @field array Default config values
-     */
-    protected static $defaults = array(
-		'fullName' => '',
-		'emailTo' => '',
-		'emailSubject' => 'New Web Contact Form Submission',
-		'successMessage' => 'Thank you, your submission has been sent.',
-		'errorMessage' => 'Please verify the data you have entered.',
-		'emailServer' => 'noreply@server.com',
-		'allFields' => 'fullName,email,message',
-		'requiredFields' => 'fullName,email,message',
-		'emailField' => 'email'
+  /**
+   * @field array Default config values
+   */
+  protected static $defaults = array(
+    'fullName' => '',
+    'emailTo' => '',
+    'emailSubject' => 'New Web Contact Form Submission',
+    'successMessage' => 'Thank you, your submission has been sent.',
+    'errorMessage' => 'Please verify the data you have entered.',
+    'emailServer' => 'noreply@server.com',
+    'allFields' => 'fullName,email,message',
+    'requiredFields' => 'fullName,email,message',
+    'emailField' => 'email',
+    'saveMessages' => true
+  );
+
+  /**
+   * Retrieves module meta data
+   * Implementation of the Module interface
+   *
+   * @return array
+   * @see http://processwire.com/apigen/class-Module.html
+   */
+  public static function getModuleInfo() {
+    return array(
+      'title' => 'Simple Contact Form',
+      'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
+      'version' => 1,
+      'href' => 'https://github.com/justonestep/processwire-simplecontactform',
+      'singular' => true,
+      'autoload' => false,
+    );
+  }
+
+  /**
+   * Retrieves the list of config input fields
+   *
+   * Implementation of the ConfigurableModule interface
+   *
+   * @param array $data The config data
+   * @return InputfieldWrapper
+   * @see http://processwire.com/apigen/class-ConfigurableModule.html
+   */
+  public static function getModuleConfigInputfields(array $data) {
+    $fields = new InputfieldWrapper();
+    $modules = wire('modules');
+
+    // default config values
+    $data = array_merge(self::$defaults, $data);
+
+    $settings = array(
+      'saveMessages' => array(
+        'type' => 'InputfieldCheckbox',
+        'description' => 'Save Messages',
+        'checked' => empty($data['saveMessages']) ? '' : 'checked',
+        'columnWidth' => 100
+      ),
+      'fullName' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Full name of the recipient',
+        'size' => 45,
+        'placeholder' => 'firstname lastname',
+        'columnWidth' => 50
+      ),
+      'emailTo' => array(
+        'type' => 'InputfieldText',
+        'description' => 'E-mail address of the recipient',
+        'size' => 45,
+        'placeholder' => 'xxx@xxx.xx',
+        'columnWidth' => 50
+      ),
+      'emailSubject' => array(
+        'type' => 'InputfieldText',
+        'description' => 'E-Mail subject',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
+      'emailServer' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Server address',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
+      'successMessage' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Success message',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
+      'errorMessage' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Error message',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
+      'allFields' => array(
+        'type' => 'InputfieldTextarea',
+        'description' => 'Comma-separated list of all fields',
+        'rows' => 2,
+        'columnWidth' => 50
+      ),
+      'requiredFields' => array(
+        'type' => 'InputfieldTextarea',
+        'description' => 'Comma-Seperated list of required fields',
+        'rows' => 2,
+        'columnWidth' => 50
+      ),
+      'emailField' => array(
+        'type' => 'InputfieldText',
+        'description' => 'field, which should be validated as an E-mail address',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
     );
 
-    public static function getModuleInfo() {
-        return array(
-			// The module'ss title, typically a little more descriptive than the class name
-            'title' => 'Simple Contact Form',
-			// summary is brief description of what this module is
-            'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-			// version: major, minor, revision, i.e. 100 = 1.0.0
-			'version' => 1,
-			// Optional URL to more information about the module
-			'href' => 'https://github.com/justonestep/processwire-simplecontactform',
-			// singular=true: indicates that only one instance of the module is allowed.
-			// This is usually what you want for modules that attach hooks.
-			'singular' => true,
-			// autoload=true: indicates the module should be started with ProcessWire.
-			// This is necessary for any modules that attach runtime hooks, otherwise those
-			// hooks won't get attached unless some other code calls the module on it's own.
-			// Note that autoload modules are almost always also 'singular' (seen above).
-			'autoload' => false,
-        );
+    // assign fields
+    foreach ($settings as $name => $s) {
+      $field = $modules->get($s['type']);
+      $field->name = $name;
+      $field->label = $name;
+      $field->value = $data[$name];
+
+      foreach ($s as $key => $val) {
+        if ($key != 'type') {
+          $field->{$key} = $val;
+        }
+      }
+
+      $fields->append($field);
     }
 
-    /**
-     * Retrieves the list of config input fields
-     *
-     * Implementation of the ConfigurableModule interface
-     *
-     * @param array $data The config data
-     * @return InputfieldWrapper
-     * @see http://processwire.com/apigen/class-ConfigurableModule.html
-     */
-	public static function getModuleConfigInputfields(array $data) {
-        $fields = new InputfieldWrapper();
-        $modules = wire('modules');
+    return $fields;
+  }
 
-        // default config values
-        $data = array_merge(self::$defaults, $data);
+  /**
+   * Instance of Page, that we use to hold our submitted contact info.
+   *
+   */
+  protected $contactPage;
 
-		$settings = array(
-			'fullName' => array(
-				'type' => 'InputfieldText',
-				'description' => 'Full name of the recipient',
-				'size' => 45,
-				'placeholder' => 'firstname lastname'
-			),
-			'emailTo' => array(
-				'type' => 'InputfieldText',
-				'description' => 'E-mail address of the recipient',
-				'size' => 45,
-				'placeholder' => 'xxx@xxx.xx'
-			),
-			'emailSubject' => array(
-				'type' => 'InputfieldText',
-				'description' => 'E-Mail subject',
-				'size' => 45
-			),
-			'emailServer' => array(
-				'type' => 'InputfieldText',
-				'description' => 'Server address',
-				'size' => 45
-			),
-			'successMessage' => array(
-				'type' => 'InputfieldText',
-				'description' => 'Success message',
-				'size' => 45
-			),
-			'errorMessage' => array(
-				'type' => 'InputfieldText',
-				'description' => 'Error message',
-				'size' => 45
-			),
-			'allFields' => array(
-				'type' => 'InputfieldTextarea',
-				'description' => 'Comma-separated list of all fields',
-				'rows' => 2
-			),
-			'requiredFields' => array(
-				'type' => 'InputfieldTextarea',
-				'description' => 'Comma-Seperated list of required fields',
-				'rows' => 1
-			),
-			'emailField' => array(
-				'type' => 'InputfieldTextarea',
-				'description' => 'field, which should be validated as an E-mail address',
-				'rows' => 1
-			),
-		);
+  /**
+   * Instance of InputfieldForm that we use to hold our form fields.
+   *
+   */
+  protected $form;
 
-		// assign fields
-		foreach ($settings as $name => $s) {
-			$field = $modules->get($s['type']);
-			$field->name = $name;
-			$field->label = $name;
-			$field->value = $data[$name];
+  /**
+   * Initialize the module
+   * Initialize a new web contact form
+   *
+   * Implementation of the Module interface
+   *
+   * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+   * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+   *
+   * @see http://processwire.com/apigen/class-Module.html
+   *
+   * @param Template $template Template object holding the form's fields.
+   *
+   */
+  public function init() {
+    // assign API variables to make things a little easier
+    $this->templates = wire('templates');
+    $this->input = wire('input');
+    $this->sanitizer = wire('sanitizer');
 
-			foreach ($s as $key => $val) {
-				if ($key != 'type') {
-					$field->{$key} = $val;
-				}
-			}
+    // convert comma separated values to array
+    $this->requiredFields = explode(',', $this->requiredFields);
+    $this->allFields = explode(',', $this->allFields);
 
-			$fields->append($field);
-		}
+    // create a new template for contactPage
+    $tName = $this->createContactPage();
 
-        return $fields;
+    // check whater to save the received messages
+    if (!empty($this->saveMessages)) {
+      $this->saveReceivedMessages();
+    }
+  }
+
+  /**
+   * Render
+   *
+   */
+  public function ___render() {
+    if (!$this->contactPage->template) throw new WireException("No Template was found.");
+
+    // validate form and send mail
+    if (!empty($this->input->post->submitted)) {
+      $this->sendMail();
     }
 
-	/**
-	 * Instance of Page, that we use to hold our submitted contact info.
-	 *
-	 */
-	protected $contactPage;
+    return $this->contactPage->render();
+  }
 
-	/**
-	 * Instance of InputfieldForm that we use to hold our form fields.
-	 *
-	 */
-	protected $form;
+  /**
+   * Send Mail
+   *
+   */
+  public function ___sendMail() {
+    $error = false;
 
-    /**
-     * Initialize the module
-	 * Initialize a new web contact form
-     *
-     * Implementation of the Module interface
-     *
-     * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
-     * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
-     *
-     * @see http://processwire.com/apigen/class-Module.html
-	 *
-	 * @param Template $template Template object holding the form's fields.
-	 *
-     */
-	public function init() {
-		// assign API variables to make things a little easier
-		$templates = wire('templates');
-		$this->input = wire('input');
-		$this->sanitizer = wire('sanitizer');
+    // sanitize form values
+    $form = array();
 
-		// convert comma separated values to array
-		$this->requiredFields = explode(',', $this->requiredFields);
-		$this->allFields = explode(',', $this->allFields);
+    // first check valid mail address
+    if (!empty($this->emailField)) {
+      $form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
+    }
 
-		// create a page for holding the form fields
-		$this->contactPage = new Page();
+    // second check required fields
+    foreach ($this->requiredFields as $requiredField) {
+      if ($requiredField === $this->emailField) {
+        $form[$requiredField] = $this->sanitizer->email($this->input->post->{$requiredField});
+      } else {
+        $form[$requiredField] = $this->sanitizer->text($this->input->post->{$requiredField});
+      }
+    }
 
-		// create a new template for contactPage
-		$tName = 'simple_contact_form';
-		if (!$templates->get($tName) instanceof Template) {
-            // new fieldgroup
-			$fg = new Fieldgroup();
-			$fg->name = $tName;
-			$fg->add($this->fields->get('title')); // needed title field
-			$fg->save();
+    // validate required/email fields
+    // email fields do not need to be validated here, sanitizer does that already!
+    foreach ($form as $field => $value) {
+      if (empty($value)) {
+        $error = true;
+        continue;
+      }
+    }
 
-			$contactTemplate = new Template();
-			$contactTemplate->name = $tName;
-			$contactTemplate->fieldgroup = $fg; // add the fieldgroup
-			$contactTemplate->noChildren = 1;
-			$contactTemplate->slashUrls = 1;
-			$contactTemplate->save();
+    // no errors - send mail
+    if ($error === false) {
+      $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
+      $message = array();
+      foreach ($this->allFields as $inputfield) {
+        $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
+      }
 
-			// add form
-			$form = $this->buildForm();
+      $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
 
-			// combine template parts
-			$content = array(
-				'<div class="">',
-				'{% if input.success %}',
-				'<p class="success">{{input.success}}</p>',
-				'{% else %}',
-				$form->render(),
-				"\n\n" . '{% if input.error %}',
-				'<p class="error">' . $this->errorMessage . '</p>',
-				'{% endif %}',
-				'{% endif %}',
-				'</div>'
-			);
+      mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
+      $this->input->post->success = $this->data['successMessage'];
+    }
 
-			// create template file
-			$twigname = getcwd() . '/site/templates/simple_contact_form.twig';
-			$twig = fopen($twigname, 'w');
-			chmod($twigname, 0766);
-			fwrite($twig, implode("\n", $content));
-			fclose($twig);
+    $this->input->post->error = $error;
+  }
 
-			if (!file_exists($twigname)) {
-				throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
-			}
-		} else {
-			$contactTemplate = $templates->get($tName);
-		}
+  /**
+   * Build the contact form and add fields to it
+   *
+   */
+  protected function ___buildForm() {
+    // create the contact form
+    $form = $this->modules->get("InputfieldForm");
+    $form->method = 'post';
+    $form->action = './';
+    $form->class = 'js-simple_contact_form';
 
-		// set template
-		$this->contactPage->set('template', $tName);
-	}
+    // add the fields as simple input fields to the form
+    foreach ($this->allFields as $inputfield) {
+      $singleField = $this->modules->get('InputfieldText');
+      $singleField->name = $inputfield;
+      $singleField->placeholder = $inputfield;
+      $singleField->initValue = '{{input.' . $inputfield . '}}';
+      if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
+      $form->add($singleField);
+    }
 
-    /**
-	 * Render
-     *
-     */
-	public function ___render() {
-		if (!$this->contactPage->template) throw new WireException("No Template was found.");
+    // add hidden field to track wheater the form was submitted
+    $hiddenField = $this->modules->get('InputfieldHidden');
+    $hiddenField->name = 'submitted';
+    $hiddenField->initValue = '1';
+    $form->add($hiddenField);
 
-		// validate form and send mail
-		if (!empty($this->input->post->submitted)) {
-			$this->sendMail();
-		}
+    // add a submit button
+    $submit = $this->modules->get("InputfieldSubmit");
+    $submit->name = "submit";
+    $submit->value = 'Submit';
+    $form->add($submit);
 
-		return $this->contactPage->render();
-	}
+    return $form;
+  }
 
-    /**
-	 * Send Mail
-     *
-     */
-	public function ___sendMail() {
-		$error = false;
+  /**
+  * create a page for holding the form fields 
+  *
+  */
+  protected function ___createContactPage() {
+    $this->contactPage = new Page();
 
-		// sanitize form values
-		$form = array();
+    // create a new template for contactPage 
+    $tName = 'simple_contact_form';
+    if (!$this->templates->get($tName) instanceof Template) {
+      // new fieldgroup
+      $fg = new Fieldgroup();
+      $fg->name = $tName;
+      $fg->add($this->fields->get('title')); // needed title field
+      $fg->save();
 
-		// first check valid mail address
-		if (!empty($this->emailField)) {
-			$form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
-		}
+      $contactTemplate = new Template();
+      $contactTemplate->name = $tName;
+      $contactTemplate->fieldgroup = $fg; // add the fieldgroup
+      $contactTemplate->noChildren = 1;
+      $contactTemplate->slashUrls = 1;
+      $contactTemplate->save();
 
-		// second check required fields
-		foreach ($this->requiredFields as $requiredField) {
-			if ($requiredField === $this->emailField) {
-				$form[$requiredField] = $this->sanitizer->email($this->input->post->{$requiredField});
-			} else {
-				$form[$requiredField] = $this->sanitizer->text($this->input->post->{$requiredField});
-			}
-		}
+      // add form
+      $form = $this->buildForm();
 
-		// validate required/email fields
-		// email fields do not need to be validated here, sanitizer does that already!
-		foreach ($form as $field => $value) {
-			if (empty($value)) {
-				$error = true;
-				continue;
-			}
-		}
+      // combine template parts
+      $content = array(
+        '<div class="">',
+        '{% if input.success %}',
+        '<p class="success">{{input.success}}</p>',
+        '{% else %}',
+        $form->render(),
+        "\n\n" . '{% if input.error %}',
+        '<p class="error">' . $this->errorMessage . '</p>',
+        '{% endif %}',
+        '{% endif %}',
+        '</div>'
+      );
 
-		// no errors - send mail
-		if ($error === false) {
-			$emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
-			$message = array();
-			foreach ($this->allFields as $inputfield) {
-				$message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
-			}
+      // create template file
+      $twigname = getcwd() . '/site/templates/simple_contact_form.twig';
+      $twig = fopen($twigname, 'w');
+      chmod($twigname, 0766);
+      fwrite($twig, implode("\n", $content));
+      fclose($twig);
 
-			$header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
+      if (!file_exists($twigname)) {
+        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
+      }
+    } else {
+      $contactTemplate = $this->templates->get($tName);
+    }
 
-			mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
-			$this->input->post->success = $this->data['successMessage'];
-		}
+    // set template
+    $this->contactPage->set('template', $tName);
+  }
 
-		$this->input->post->error = $error;
-	}
+  /**
+  * create a page for holding the received messages
+  *
+  */
+  protected function ___saveReceivedMessages() {
+    // first: create necessary fields
 
-	/**
-	 * Build the contact form and add fields to it
-	 *
-	 */
-	protected function ___buildForm() {
-		// create the contact form
-		$form = $this->modules->get("InputfieldForm");
-		$form->method = 'post';
-		$form->action = './';
-		$form->class = 'js-simple_contact_form';
 
-		// add the fields as simple input fields to the form
-		foreach ($this->allFields as $inputfield) {
-			$singleField = $this->modules->get('InputfieldText');
-			$singleField->name = $inputfield;
-			$singleField->placeholder = $inputfield;
-			$singleField->initValue = '{{input.' . $inputfield . '}}';
-			if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
-			$form->add($singleField);
-		}
+    // second: create fieldgroup and page
+  }
 
-		// add hidden field to track wheater the form was submitted
-		$hiddenField = $this->modules->get('InputfieldHidden');
-		$hiddenField->name = 'submitted';
-		$hiddenField->initValue = '1';
-		$form->add($hiddenField);
-
-		// add a submit button
-		$submit = $this->modules->get("InputfieldSubmit");
-		$submit->name = "submit";
-		$submit->value = 'Submit';
-		$form->add($submit);
-
-		return $form;
-	}
 }
