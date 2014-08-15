@@ -369,8 +369,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   *
   */
   protected function ___saveReceivedMessages() {
-    $templateName = 'scf-messages';
-    $repeaterName = 'repeater_scfmessages';
+    $templateName = 'simple_contact_form_messages';
     $pageName = 'scf-messages';
 
     if (!$this->templates->get($templateName) instanceof Template) {
@@ -397,17 +396,38 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $p->parent = wire('pages')->get('/');
       $p->name = $pageName;
       $p->title = $pageName;
-      $p->addStatus(Page::statusUnpublished);
       $p->addStatus(Page::statusHidden);
       $p->addStatus(Page::statusLocked);
       $p->save();
+
+      $content = array(
+        '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
+        '<h1>{{currentPage.title}}</h1>',
+        '{% for message in currentPage.' . $repeaterField->name . ' %}',
+        '<ul>',
+        '{% for entry in message %}',
+        '<li>{{ entry }}</li>',
+        '{% endfor %}',
+        '</ul>',
+        '{% endfor %}'
+      );
+
+      // create template file
+      $twigname = getcwd() . '/site/templates/' . $templateName . '.twig';
+      $twig = fopen($twigname, 'w');
+      chmod($twigname, 0766);
+      fwrite($twig, implode("\n", $content));
+      fclose($twig);
+
+      if (!file_exists($twigname)) {
+        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
+      }
     }
   }
 
  /**
 	 * Creates a repeater field with associated fieldgroup, template, and page
 	 *
-	 * @param string $repeaterName The name of your repeater field
 	 * @return Returns the new Repeater field
 	 *
 	 */
