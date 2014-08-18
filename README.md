@@ -34,20 +34,20 @@ requiredFields: fullName,email,message
 emailField: email
 ```
 
-These fields will be rendered automatically.  
-Therefore a new template called `simple_contact_form.twig` will be created in your `site/templates` directory.  
-All fields in this new template will be simple inputs temporarily.  
+These fields will be rendered automatically.
+Therefore a new template called `simple_contact_form.twig` will be created in your `site/templates` directory.
+All fields in this new template will be simple inputs temporarily.
 Once created you can/should modify the template as well as the fields to your own needs, 
-just make sure to maintain the names of the fields.  
+just make sure to maintain the names of the fields.
 
-If `saveMessages` is enabled, a new page `scf-messages` will be created.  
-Also a new repeater field containing all set up fields is added.  
-For each received message a new repeater element is stored.  
+If `saveMessages` is enabled, a new page `scf-messages` will be created.
+Also a new repeater field containing all set up fields is added.
+For each received message a new repeater element is stored.
 The new template `simple_contact_form_messages.twig` which is created for this page checks 
-whether the current user is logged into the backend or not.  
-If that is the case all received messages will be listed.  
-Otherwise the user will be redirected to the root page.  
-Failing that the user will be redirected to the root page.  
+whether the current user is logged into the backend or not.
+If that is the case all received messages will be listed.
+Otherwise the user will be redirected to the root page.
+Failing that the user will be redirected to the root page.
 You can modify that templates for your own needs.
 
 6. Create a template for your contact form page (if you don't already have one).
