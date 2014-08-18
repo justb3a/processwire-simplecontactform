@@ -284,7 +284,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
         $newEntry->save();
         $page->setOutputFormatting(false);
-        $page->save(); 
+        $page->save();
       }
 
       // don't send mail twice, deactivate condition
@@ -439,6 +439,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       }
 
       $content = array(
+        '{% if user.hasRole("superuser") %}',
         '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
         '<h1>{{currentPage.title}}</h1>',
         '<table>',
@@ -454,7 +455,10 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         '</tr>',
         '{% endfor %}',
         '</tbody>',
-        '</table>'
+        '</table>',
+        '{% else %}',
+        '{{session.redirect(pages.get("/").url)}}',
+        '{% endif %}'
       );
 
       // create template file
