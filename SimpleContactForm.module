@@ -449,7 +449,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         '</tr>',
         '</thead>',
         '<tbody>',
-        '{% for message in currentPage.' . $repeaterField->name . ' %}',
+        '{% for message in currentPage.' . $repeaterField->name . 'sort("scf_date") %}',
         '<tr>',
         implode("\n", $table['content']),
         '</tr>',
