@@ -192,6 +192,13 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $this->pages = wire('pages');
     $this->modules = wire('modules');
 
+    // check file permissions
+    $folderTemplates = getcwd() . '/site/templates/';
+    $currentMode = substr(sprintf('%o', fileperms($folderTemplates)), -4);
+    if ($currentMode != '0777') {
+        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777, current: ' . $currentMode . ').');
+    }
+
     // convert comma separated values to array
     $this->requiredFields = explode(',', $this->requiredFields);
     $this->allFieldsExtended = explode(',', $this->allFields . ',date');
@@ -449,7 +456,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         '</tr>',
         '</thead>',
         '<tbody>',
-        '{% for message in currentPage.' . $repeaterField->name . 'sort("scf_date") %}',
+        '{% for message in currentPage.' . $repeaterField->name . '.sort("-scf_date") %}',
         '<tr>',
         implode("\n", $table['content']),
         '</tr>',
