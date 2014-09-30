@@ -32,6 +32,7 @@ emailServer: noreply@xxx.xx
 allFields: fullName,email,message
 requiredFields: fullName,email,message
 emailField: email
+antispamfortime: It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.
 ```
 
 These fields will be rendered automatically.
