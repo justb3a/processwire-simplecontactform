@@ -37,7 +37,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'allFields' => 'fullName,email,message',
     'requiredFields' => 'fullName,email,message',
     'emailField' => 'email',
-    'saveMessages' => true
+    'saveMessages' => true,
+    'antispamfortime' => '15'
   );
 
   /**
@@ -134,6 +135,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       'emailField' => array(
         'type' => 'InputfieldText',
         'description' => 'field, which should be validated as an E-mail address',
+        'size' => 45,
+        'columnWidth' => 50
+      ),
+      'antispamfortime' => array(
+        'type' => 'InputfieldText',
+        'description' => 'It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.',
         'size' => 45,
         'columnWidth' => 50
       ),
@@ -240,6 +247,17 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     // sanitize form values
     $form = array();
 
+    $dateDiff = 0;
+    if (!empty($this->input->post->{'scf-date'})) {
+      $dateDiff = date('U') - (int)$this->input->post->{'scf-date'};
+    }
+
+    // spam protection
+    if (!empty($this->input->post->{'scf-website'}) || $dateDiff <= $this->antispamfortime) {
+      // redirect home
+      $this->session->redirect($this->pages->get('/')->url);
+    }
+
     // first check valid mail address
     if (!empty($this->emailField)) {
       $form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
@@ -322,11 +340,19 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $form->add($singleField);
     }
 
-    // add hidden field to track wheater the form was submitted
-    $hiddenField = $this->modules->get('InputfieldHidden');
-    $hiddenField->name = 'submitted';
-    $hiddenField->initValue = '1';
-    $form->add($hiddenField);
+    // add honeypot (spam protection)
+    $honeyField = $this->modules->get('InputfieldText');
+    $honeyField->name = 'scf-website';
+    $honeyField->initValue = '';
+    $form->add($honeyField);
+
+    foreach (array('submitted' => '1', 'scf-date' => '{{\'now\'|date(\'U\')}}' ) as $name => $val) {
+      // add hidden field to track wheater the form was submitted and to save current timestamp
+      $hiddenField = $this->modules->get('InputfieldHidden');
+      $hiddenField->name = $name;
+      $hiddenField->initValue = $val;
+      $form->add($hiddenField);
+    }
 
     // add a submit button
     $submit = $this->modules->get("InputfieldSubmit");
@@ -367,11 +393,11 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $content = array(
         '<div class="">',
         '{% if input.success %}',
-        '<p class="success">{{input.success}}</p>',
+        '<p class="success scf-state">{{input.success}}</p>',
         '{% else %}',
         $form->render(),
         "\n\n" . '{% if input.error %}',
-        '<p class="error">' . $this->errorMessage . '</p>',
+        '<p class="error scf-state">' . $this->errorMessage . '</p>',
         '{% endif %}',
         '{% endif %}',
         '</div>'
