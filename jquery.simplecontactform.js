@@ -26,8 +26,15 @@
 					e.preventDefault();
 
 					$.post(e.target.action, $(this).serialize(), function(data) {
-						$('.' + plugin.options.form).parent().replaceWith($(data));
-						plugin.load();
+            var $data = $(data);
+
+            if (!$data.children().hasClass('scf-state')) {
+              location.reload();
+            } else {
+              $('.' + plugin.options.form).parent().replaceWith($(data));
+              plugin.load();
+            }
+
 					});
 				});
 			}
