@@ -32,7 +32,10 @@ emailServer: noreply@xxx.xx
 allFields: fullName,email,message
 requiredFields: fullName,email,message
 emailField: email
-antispamfortime: It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.
+antiSpamTimeMin: It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.
+antiSpamTimeMax: It parses the time the user needs to fill out the form. If the time is over a maximum time, the submission is treated as Spam.
+antiSpamPerDay: How often the form is allowed to be submitted by a single IP address in the last 24 hours.
+antiSpamExcludeIps: Comma-Seperated list of IP addresses to be excluded from IP filtering.
 ```
 
 These fields will be rendered automatically.
