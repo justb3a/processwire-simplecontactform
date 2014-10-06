@@ -38,7 +38,10 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'requiredFields' => 'fullName,email,message',
     'emailField' => 'email',
     'saveMessages' => true,
-    'antispamfortime' => '15'
+    'antiSpamTimeMin' => '15',
+    'antiSpamTimeMax' => '90',
+    'antiSpamPerDay' => '3',
+    'antiSpamExcludeIps' => '127.0.0.1'
   );
 
   /**
@@ -87,64 +90,82 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'description' => 'Full name of the recipient',
         'size' => 45,
         'placeholder' => 'firstname lastname',
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'emailTo' => array(
         'type' => 'InputfieldText',
         'description' => 'E-mail address of the recipient',
         'size' => 45,
         'placeholder' => 'xxx@xxx.xx',
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'emailSubject' => array(
         'type' => 'InputfieldText',
         'description' => 'E-Mail subject',
         'size' => 45,
-        'columnWidth' => 50
+        'columnWidth' => 34
       ),
       'emailServer' => array(
         'type' => 'InputfieldText',
         'description' => 'Server address',
         'size' => 45,
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'successMessage' => array(
         'type' => 'InputfieldText',
         'description' => 'Success message',
         'size' => 45,
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'errorMessage' => array(
         'type' => 'InputfieldText',
         'description' => 'Error message',
         'size' => 45,
-        'columnWidth' => 50
+        'columnWidth' => 34
       ),
       'allFields' => array(
         'type' => 'InputfieldTextarea',
         'description' => 'Comma-separated list of all fields',
         'rows' => 2,
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'requiredFields' => array(
         'type' => 'InputfieldTextarea',
         'description' => 'Comma-Seperated list of required fields',
         'rows' => 2,
-        'columnWidth' => 50
+        'columnWidth' => 33
       ),
       'emailField' => array(
         'type' => 'InputfieldText',
         'description' => 'field, which should be validated as an E-mail address',
         'size' => 45,
-        'columnWidth' => 50
+        'columnWidth' => 34
       ),
-      'antispamfortime' => array(
+      'antiSpamTimeMin' => array(
         'type' => 'InputfieldText',
         'description' => 'It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.',
-        'size' => 45,
-        'columnWidth' => 50
+        'size' => 3,
+        'columnWidth' => 25
       ),
-    );
+      'antiSpamTimeMax' => array(
+        'type' => 'InputfieldText',
+        'description' => 'It parses the time the user needs to fill out the form. If the time is over a maximum time, the submission is treated as Spam.',
+        'size' => 3,
+        'columnWidth' => 25
+      ),
+      'antiSpamPerDay' => array(
+        'type' => 'InputfieldText',
+        'description' => 'How often the form is allowed to be submitted by a single IP address in the last 24 hours.',
+        'size' => 3,
+        'columnWidth' => 25
+      ),
+      'antiSpamExcludeIps' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Comma-Seperated list of IP addresses to be excluded from IP filtering.',
+        'size' => 45,
+        'columnWidth' => 25
+      ),
+    );   
 
     // assign fields
     foreach ($settings as $name => $s) {
@@ -208,7 +229,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     // convert comma separated values to array
     $this->requiredFields = explode(',', $this->requiredFields);
-    $this->allFieldsExtended = explode(',', $this->allFields . ',date');
+    $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
     $this->allFields = explode(',', $this->allFields);
     $this->pageName = 'scf-messages';
     $this->repeaterName = 'repeater_scfmessages';
@@ -247,16 +268,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     // sanitize form values
     $form = array();
 
-    $dateDiff = 0;
-    if (!empty($this->input->post->{'scf-date'})) {
-      $dateDiff = date('U') - (int)$this->input->post->{'scf-date'};
-    }
-
-    // spam protection
-    if (!empty($this->input->post->{'scf-website'}) || $dateDiff <= $this->antispamfortime) {
-      // redirect home
-      $this->session->redirect($this->pages->get('/')->url);
-    }
+    $this->antiSpam();
 
     // first check valid mail address
     if (!empty($this->emailField)) {
@@ -284,13 +296,14 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     // no errors - send mail and save message in database
     if ($error === false) {
       $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
-      $date = date('d.m.Y - H:i');
+      // $date = date('d.m.Y - H:i');
+      $date = new DateTime();
 
       $message = array();
       foreach ($this->allFields as $inputfield) {
         $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
       }
-      $message[] = 'Date: ' . $date;
+      $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
 
       $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
 
@@ -305,7 +318,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         foreach ($this->allFields as $inputfield) {
           $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
         }
-        $newEntry->scf_date = $date;
+        $newEntry->scf_date = $date->getTimestamp();
+        $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
 
         $newEntry->save();
         $page->setOutputFormatting(false);
@@ -317,6 +331,53 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     }
 
     $this->input->post->error = $error;
+  }
+
+  /**
+   *  spam protection
+   *
+   */
+  protected function ___antiSpam() {
+    $spam = false;
+    $bptUserAgents = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
+    $currentIp = $_SERVER['REMOTE_ADDR'];
+    $excludeIps = explode(',', $this->antiSpamExcludeIps);
+
+    $dateDiff = 0;
+    if (!empty($this->input->post->{'scf-date'})) {
+      $dateDiff = date('U') - (int)$this->input->post->{'scf-date'};
+    }
+
+    // evaluate honeypot
+    if (!empty($this->input->post->{'scf-website'})) {
+      $spam = true;
+    } elseif (count($this->allFields) + 4 !== count($this->input->post)) {
+      // check number of fields
+      $spam = true;
+    } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
+      // check HTTP_USER_AGENT
+      $spam = true;
+    } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
+      // check HTTP_REFERER und HTTP_USER_AGENT
+      $spam = true;
+    } elseif (!in_array($currentIp, $excludeIps)) {
+      // control how often the form is allowed to be submitted by a single IP address
+      $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
+      $dateSub = new DateTime();
+      $dateSub->sub(new DateInterval('P1D'));
+      $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+
+      if ($totalLast24h >= $this->antiSpamPerDay) {
+        $spam = true;
+      }
+    } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
+      // check date difference
+      $spam = true;
+    }
+
+    if ($spam === true) {
+      $this->session->redirect($this->pages->get('/')->url);
+    }
   }
 
   /**
