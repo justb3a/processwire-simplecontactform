@@ -84,4 +84,4 @@ To get just the necessary part, modify yout template like this:
 
 **Module Settings**
 
-![screenshot](screens/module-settings.png)
+![screenshot](screens/settings.png)
