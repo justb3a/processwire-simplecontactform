@@ -13,7 +13,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.4
+* @version 0.0.5
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -55,7 +55,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 4,
+      'version' => 5,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => false,
@@ -165,7 +165,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'size' => 45,
         'columnWidth' => 25
       ),
-    );   
+    );
 
     // assign fields
     foreach ($settings as $name => $s) {
@@ -581,6 +581,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $f->type = $this->modules->get('FieldtypeText');
       $f->name = 'scf_' . $name;
       $f->label = 'SCF - ' . ucfirst($name);
+      $f->columnWidth = '33';
       $f->save();
     }
 
@@ -596,7 +597,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $repeaterFg->name = 'repeater_' . $this->repeaterName;
 
     // add fields to fieldgroup
-    foreach($this->allFieldsExtended as $field) {
+    foreach ($this->allFieldsExtended as $field) {
       $repeaterFg->append($this->fields->get('scf_' . $field));
     }
 
