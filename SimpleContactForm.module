@@ -13,7 +13,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.5
+* @version 0.0.6
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -41,7 +41,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'antiSpamTimeMin' => '15',
     'antiSpamTimeMax' => '90',
     'antiSpamPerDay' => '3',
-    'antiSpamExcludeIps' => '127.0.0.1'
+    'antiSpamExcludeIps' => '127.0.0.1',
+    'useTwig' => false
   );
 
   /**
@@ -55,7 +56,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 5,
+      'version' => 6,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => false,
@@ -83,7 +84,13 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'type' => 'InputfieldCheckbox',
         'description' => 'Save Messages',
         'checked' => empty($data['saveMessages']) ? '' : 'checked',
-        'columnWidth' => 100
+        'columnWidth' => 50
+      ),
+      'useTwig' => array(
+        'type' => 'InputfieldCheckbox',
+        'description' => 'Check if you use Twig as template engine',
+        'checked' => empty($data['useTwig']) ? '' : 'checked',
+        'columnWidth' => 50
       ),
       'fullName' => array(
         'type' => 'InputfieldText',
@@ -221,10 +228,10 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $this->modules = wire('modules');
 
     // check file permissions
-    $folderTemplates = getcwd() . '/site/templates/';
-    $currentMode = substr(sprintf('%o', fileperms($folderTemplates)), -4);
+    $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
-        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777, current: ' . $currentMode . ').');
+      chmod($this->config->paths->templates, 0777);
+      $this->message('Changed mode for ' . $this->config->paths->templates . ' from ' . $currentMode . ' to 0777 to be able to create the necessary template files.');
     }
 
     // convert comma separated values to array
@@ -262,7 +269,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    * Send Mail
    *
    */
-  public function ___sendMail() {
+  public function sendMail() {
     $error = false;
 
     // sanitize form values
@@ -337,7 +344,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    *  spam protection
    *
    */
-  protected function ___antiSpam() {
+  protected function antiSpam() {
     $spam = false;
     $bptUserAgents = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
     $currentIp = $_SERVER['REMOTE_ADDR'];
@@ -384,7 +391,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    * Build the contact form and add fields to it
    *
    */
-  protected function ___buildForm() {
+  protected function buildForm() {
     // create the contact form
     $form = $this->modules->get("InputfieldForm");
     $form->method = 'post';
@@ -428,7 +435,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   * create a page for holding the form fields
   *
   */
-  protected function ___createContactPage() {
+  protected function createContactPage() {
     $this->contactPage = new Page();
 
     // create a new template for contactPage
@@ -449,20 +456,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
       // add form
       $form = $this->buildForm();
-
-      // combine template parts
-      $content = array(
-        '<div class="">',
-        '{% if input.success %}',
-        '<p class="success scf-state">{{input.success}}</p>',
-        '{% else %}',
-        $form->render(),
-        "\n\n" . '{% if input.error %}',
-        '<p class="error scf-state">' . $this->errorMessage . '</p>',
-        '{% endif %}',
-        '{% endif %}',
-        '</div>'
-      );
+      $content = $this->getFormTemplateContent($form);
 
       // create template file
       $twigname = getcwd() . '/site/templates/simple_contact_form.twig';
@@ -482,11 +476,130 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $this->contactPage->set('template', $tName);
   }
 
+
+  private function getFormTemplateContent($form) {
+    // combine template parts
+    if ($this->useTwig === true) {
+      $content = array(
+        '<div class="">',
+        '{% if input.success %}',
+        '<p class="success scf-state">{{input.success}}</p>',
+        '{% else %}',
+        $form->render(),
+        "\n\n" . '{% if input.error %}',
+        '<p class="error scf-state">' . $this->errorMessage . '</p>',
+        '{% endif %}',
+        '{% endif %}',
+        '</div>'
+      );
+    } else {
+      $content = array(
+        'echo "<div class=\'\'>";',
+        'if ($input->success) {',
+        'echo "<p class=\'success scf-state\'>{$input->success}</p>";',
+        '} else {',
+        'echo "' . $form->render() . '";',
+        "\n\n" . 'if ($input->error) {',
+        'echo "<p class=\'error scf-state\'>' . $this->errorMessage . '</p>";',
+        '}',
+        '}',
+        'echo "</div>";'
+      );
+    }
+
+    return $content;
+  }
+
+
+  private function getTableTemplateContent() {
+    $table = array(
+      'head' => array(),
+      'content' => array()
+    );
+
+    foreach($this->allFieldsExtended as $inputfield) {
+      if ($this->useTwig === true) {
+        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
+
+        if ($inputfield === $this->emailField) {
+          $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
+        } else {
+          $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
+        }
+      } else {
+        $table['head'][] = 'echo "<th>' . ucfirst($inputfield) . '</th>";';
+
+        $input = "scf_{$inputfield}";
+        if ($inputfield === $this->emailField) {
+          $table['content'][] = 'echo "<td><a href=\'mailto:{$message->' . $input . '}\'>{$message->' . $input . '}</a></td>";';
+        } else {
+          $table['content'][] = 'echo ""<td>{$message->' . $input . '}</td>";';
+        }
+      }
+    }
+
+    return $table;
+  }
+
+  private function getMessagesTemplateContent($table, $templateName, $repeaterName) {
+    // combine template parts
+    if ($this->useTwig === true) {
+      $content = array(
+        '{% if user.hasRole("superuser") %}',
+        '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
+        '<h1>{{currentPage.title}}</h1>',
+        '<table>',
+        '<thead>',
+        '<tr>',
+        implode("\n", $table['head']),
+        '</tr>',
+        '</thead>',
+        '<tbody>',
+        '{% for message in currentPage.' . $repeaterName . '.sort("-scf_date") %}',
+        '<tr>',
+        implode("\n", $table['content']),
+        '</tr>',
+        '{% endfor %}',
+        '</tbody>',
+        '</table>',
+        '{% else %}',
+        '{{session.redirect(pages.get("/").url)}}',
+        '{% endif %}'
+      );
+
+    } else {
+      $content = array(
+        'if ($user->hasRole("superuser")) {',
+        '$currentPage = $this->pages->findOne("template=\'{' . $templateName . '}\'");',
+        'echo "<h1>{$currentPage->title}</h1>";',
+        'echo "<table>";',
+        'echo "<thead>";',
+        'echo "<tr>";',
+        implode("\n", $table['head']),
+        'echo "</tr>";',
+        'echo "</thead>";',
+        'echo "<tbody>";',
+        'foreach ($currentPage->' . $repeaterName . '->sort(\'-scf-date\') as $message) {;',
+        'echo "<tr>";',
+        implode("\n", $table['content']),
+        'echo "</tr>";',
+        '}',
+        'echo "</tbody>";',
+        'echo "</table>";',
+        '} else {',
+        '$session->redirect($pages->get("/")->url);',
+        '}'
+      );
+    }
+
+    return $content;
+  }
+
   /**
   * create a page for holding the received messages
   *
   */
-  protected function ___createReceivedMessagesPage() {
+  protected function createReceivedMessagesPage() {
     $templateName = 'simple_contact_form_messages';
 
     if (!$this->templates->get($templateName) instanceof Template) {
@@ -517,43 +630,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $p->addStatus(Page::statusLocked);
       $p->save();
 
-      $table = array(
-        'head' => array(),
-        'content' => array()
-      );
-
-      foreach($this->allFieldsExtended as $inputfield) {
-        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
-
-        if ($inputfield === $this->emailField) {
-          $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
-        } else {
-          $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
-        }
-      }
-
-      $content = array(
-        '{% if user.hasRole("superuser") %}',
-        '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
-        '<h1>{{currentPage.title}}</h1>',
-        '<table>',
-        '<thead>',
-        '<tr>',
-        implode("\n", $table['head']),
-        '</tr>',
-        '</thead>',
-        '<tbody>',
-        '{% for message in currentPage.' . $repeaterField->name . '.sort("-scf_date") %}',
-        '<tr>',
-        implode("\n", $table['content']),
-        '</tr>',
-        '{% endfor %}',
-        '</tbody>',
-        '</table>',
-        '{% else %}',
-        '{{session.redirect(pages.get("/").url)}}',
-        '{% endif %}'
-      );
+      $table = $this->getTableTemplateContent();
+      $content = $this->getMessagesTemplateContent($table, $templateName, $repeaterField->name);
 
       // create template file
       $twigname = getcwd() . '/site/templates/' . $templateName . '.twig';
@@ -574,7 +652,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    * @return Returns the new Repeater field
    *
    */
-  public function ___createRepeater() {
+  public function createRepeater() {
     // create fields for repeater
     foreach ($this->allFieldsExtended as $name) {
       $f = new Field();
