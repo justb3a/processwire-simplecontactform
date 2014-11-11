@@ -38,7 +38,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'requiredFields' => 'fullName,email,message',
     'emailField' => 'email',
     'saveMessages' => true,
-    'antiSpamTimeMin' => '15',
+    'antiSpamTimeMin' => '5',
     'antiSpamTimeMax' => '90',
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
@@ -220,33 +220,36 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    *
    */
   public function init() {
-    // assign API variables to make things a little easier
-    $this->templates = wire('templates');
-    $this->input = wire('input');
-    $this->sanitizer = wire('sanitizer');
-    $this->pages = wire('pages');
-    $this->modules = wire('modules');
+    if (!empty($this->modules->getInstall('SimpleContactForm')->data)) {
+      // assign API variables to make things a little easier
+      $this->templates = wire('templates');
+      $this->input = wire('input');
+      $this->sanitizer = wire('sanitizer');
+      $this->pages = wire('pages');
+      $this->modules = wire('modules');
 
-    // check file permissions
+      // convert comma separated values to array
+      $this->requiredFields = explode(',', $this->requiredFields);
+      $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
+      $this->allFields = explode(',', $this->allFields);
+      $this->pageName = 'scf-messages';
+      $this->repeaterName = 'repeater_scfmessages';
+
+      // create a new template for contactPage
+      $tName = $this->createContactPage();
+
+      // check whater to save the received messages
+      if (!empty($this->saveMessages)) {
+        $this->createReceivedMessagesPage();
+      }
+    }
+  }
+
+  private function checkFilePermissions() {
     $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
       chmod($this->config->paths->templates, 0777);
       $this->message('Changed mode for ' . $this->config->paths->templates . ' from ' . $currentMode . ' to 0777 to be able to create the necessary template files.');
-    }
-
-    // convert comma separated values to array
-    $this->requiredFields = explode(',', $this->requiredFields);
-    $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
-    $this->allFields = explode(',', $this->allFields);
-    $this->pageName = 'scf-messages';
-    $this->repeaterName = 'repeater_scfmessages';
-
-    // create a new template for contactPage
-    $tName = $this->createContactPage();
-
-    // check whater to save the received messages
-    if (!empty($this->saveMessages)) {
-      $this->createReceivedMessagesPage();
     }
   }
 
@@ -352,15 +355,15 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     $dateDiff = 0;
     if (!empty($this->input->post->{'scf-date'})) {
-      $dateDiff = date('U') - (int)$this->input->post->{'scf-date'};
+      $dateDiff = time() - (int)$this->input->post->{'scf-date'};
     }
 
     // evaluate honeypot
     if (!empty($this->input->post->{'scf-website'})) {
       $spam = true;
-    } elseif (count($this->allFields) + 4 !== count($this->input->post)) {
+    // } elseif (count($this->allFields) + 4 !== count($this->input->post)) {
       // check number of fields
-      $spam = true;
+      // $spam = true;
     } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
       // check HTTP_USER_AGENT
       $spam = true;
@@ -403,7 +406,13 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $singleField = $this->modules->get('InputfieldText');
       $singleField->name = $inputfield;
       $singleField->placeholder = $inputfield;
-      $singleField->initValue = '{{input.' . $inputfield . '}}';
+
+      if ($this->useTwig === true) {
+        $singleField->initValue = '{{input.' . $inputfield . '}}';
+      } else {
+        $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
+      }
+
       if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
       $form->add($singleField);
     }
@@ -414,7 +423,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $honeyField->initValue = '';
     $form->add($honeyField);
 
-    foreach (array('submitted' => '1', 'scf-date' => '{{\'now\'|date(\'U\')}}' ) as $name => $val) {
+    $scfDate = ($this->useTwig === true) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
+    foreach (array('submitted' => '1', 'scf-date' => $scfDate) as $name => $val) {
       // add hidden field to track wheater the form was submitted and to save current timestamp
       $hiddenField = $this->modules->get('InputfieldHidden');
       $hiddenField->name = $name;
@@ -452,20 +462,28 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $contactTemplate->fieldgroup = $fg; // add the fieldgroup
       $contactTemplate->noChildren = 1;
       $contactTemplate->slashUrls = 1;
+      $contactTemplate->noPrependTemplateFile = 1;
+      $contactTemplate->noAppendTemplateFile = 1;
       $contactTemplate->save();
 
       // add form
       $form = $this->buildForm();
       $content = $this->getFormTemplateContent($form);
 
-      // create template file
-      $twigname = getcwd() . '/site/templates/simple_contact_form.twig';
-      $twig = fopen($twigname, 'w');
-      chmod($twigname, 0766);
-      fwrite($twig, implode("\n", $content));
-      fclose($twig);
+      // check form
+      // - < &lt;
+      // - > &gt;
+      // time - date('U')
 
-      if (!file_exists($twigname)) {
+      // create template file
+      $ext = ($this->useTwig === true) ? '.twig' : '.php';
+      $tPath = $this->config->paths->templates . $tName . $ext;
+      $template = fopen($tPath, 'w');
+      chmod($tPath, 0766);
+      fwrite($template, html_entity_decode(implode("\n", $content)));
+      fclose($template);
+
+      if (!file_exists($tPath)) {
         throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
       }
     } else {
@@ -494,16 +512,17 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       );
     } else {
       $content = array(
-        'echo "<div class=\'\'>";',
-        'if ($input->success) {',
-        'echo "<p class=\'success scf-state\'>{$input->success}</p>";',
-        '} else {',
-        'echo "' . $form->render() . '";',
-        "\n\n" . 'if ($input->error) {',
-        'echo "<p class=\'error scf-state\'>' . $this->errorMessage . '</p>";',
-        '}',
-        '}',
-        'echo "</div>";'
+        '<div class="">',
+        '<?php if ($input->success) { ?>',
+        '<p class=\'success scf-state\'><?= $input->success ?></p>',
+        '<?php } else { ?>',
+        $form->render(),
+        "\n\n",
+        '<?php if ($input->error) { ?>',
+        '<p class=\'error scf-state\'>' . $this->errorMessage . '</p>',
+        '<?php }',
+        '} ?>',
+        '</div>'
       );
     }
 
@@ -527,13 +546,13 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
           $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
         }
       } else {
-        $table['head'][] = 'echo "<th>' . ucfirst($inputfield) . '</th>";';
+        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
 
         $input = "scf_{$inputfield}";
         if ($inputfield === $this->emailField) {
-          $table['content'][] = 'echo "<td><a href=\'mailto:{$message->' . $input . '}\'>{$message->' . $input . '}</a></td>";';
+          $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
         } else {
-          $table['content'][] = 'echo ""<td>{$message->' . $input . '}</td>";';
+          $table['content'][] = '<td><?= $message->' . $input . '; ?></td>';
         }
       }
     }
@@ -569,26 +588,27 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     } else {
       $content = array(
+        '<?php',
         'if ($user->hasRole("superuser")) {',
-        '$currentPage = $this->pages->findOne("template=\'{' . $templateName . '}\'");',
-        'echo "<h1>{$currentPage->title}</h1>";',
-        'echo "<table>";',
-        'echo "<thead>";',
-        'echo "<tr>";',
+        '$currentPage = $this->pages->findOne("template=\'' . $templateName . '\'"); ?>',
+        '<h1><?= $currentPage->title; ?></h1>',
+        '<table>',
+        '<thead>',
+        '<tr>',
         implode("\n", $table['head']),
-        'echo "</tr>";',
-        'echo "</thead>";',
-        'echo "<tbody>";',
-        'foreach ($currentPage->' . $repeaterName . '->sort(\'-scf-date\') as $message) {;',
-        'echo "<tr>";',
+        '</tr>',
+        '</thead>',
+        '<tbody>',
+        '<?php foreach ($currentPage->' . $repeaterName . '->sort(\'-scf-date\') as $message) { ?>',
+        '<tr>',
         implode("\n", $table['content']),
-        'echo "</tr>";',
-        '}',
-        'echo "</tbody>";',
-        'echo "</table>";',
-        '} else {',
+        '</tr>',
+        '<?php } ?>',
+        '</tbody>',
+        '</table>',
+        '<?php } else { ',
         '$session->redirect($pages->get("/")->url);',
-        '}'
+        '}?>'
       );
     }
 
@@ -618,6 +638,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $t->name = $templateName;
       $t->fieldgroup = $fg; // add the fieldgroup
       $t->noChildren = 1;
+      $t->noPrependTemplateFile = 1;
+      $t->noAppendTemplateFile = 1;
       $t->save();
 
       // create page
@@ -634,11 +656,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $content = $this->getMessagesTemplateContent($table, $templateName, $repeaterField->name);
 
       // create template file
-      $twigname = getcwd() . '/site/templates/' . $templateName . '.twig';
-      $twig = fopen($twigname, 'w');
-      chmod($twigname, 0766);
-      fwrite($twig, implode("\n", $content));
-      fclose($twig);
+      $ext = ($this->useTwig === true) ? '.twig' : '.php';
+      $tPath = $this->config->paths->templates . $templateName . $ext;
+      $template = fopen($tPath, 'w');
+      chmod($tPath, 0766);
+      fwrite($template, html_entity_decode(implode("\n", $content)));
+      fclose($template);
 
       if (!file_exists($twigname)) {
         throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
@@ -707,6 +730,15 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $repeaterField->save();
 
     return $repeaterField;
+  }
+
+  /**
+  *
+  * install routine
+  */
+  public function ___install() {
+    // check file permissions
+    $this->checkFilePermissions();
   }
 
 }
