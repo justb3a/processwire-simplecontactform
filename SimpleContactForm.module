@@ -447,9 +447,9 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   */
   protected function createContactPage() {
     $this->contactPage = new Page();
-
-    // create a new template for contactPage
     $tName = 'simple_contact_form';
+
+    // create a new template for contactPage - database
     if (!$this->templates->get($tName) instanceof Template) {
       // new fieldgroup
       $fg = new Fieldgroup();
@@ -465,19 +465,16 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $contactTemplate->noPrependTemplateFile = 1;
       $contactTemplate->noAppendTemplateFile = 1;
       $contactTemplate->save();
+    }
 
+    $ext = ($this->useTwig === true) ? '.twig' : '.php';
+    $tPath = $this->config->paths->templates . $tName . $ext;
+    if (!file_exists($tPath)) {
       // add form
       $form = $this->buildForm();
       $content = $this->getFormTemplateContent($form);
 
-      // check form
-      // - < &lt;
-      // - > &gt;
-      // time - date('U')
-
       // create template file
-      $ext = ($this->useTwig === true) ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $tName . $ext;
       $template = fopen($tPath, 'w');
       chmod($tPath, 0766);
       fwrite($template, html_entity_decode(implode("\n", $content)));
@@ -651,13 +648,15 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $p->addStatus(Page::statusHidden);
       $p->addStatus(Page::statusLocked);
       $p->save();
+    }
 
+    $ext = ($this->useTwig === true) ? '.twig' : '.php';
+    $tPath = $this->config->paths->templates . $templateName . $ext;
+    if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
-      $content = $this->getMessagesTemplateContent($table, $templateName, $repeaterField->name);
+      $content = $this->getMessagesTemplateContent($table, $templateName, $this->repeaterName);
 
       // create template file
-      $ext = ($this->useTwig === true) ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $templateName . $ext;
       $template = fopen($tPath, 'w');
       chmod($tPath, 0766);
       fwrite($template, html_entity_decode(implode("\n", $content)));
