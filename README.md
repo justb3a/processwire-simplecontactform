@@ -9,7 +9,10 @@ Current version: 0.0.6 stable
 
 ## Installation:
 
-1. Clone the module and place SimpleContactForm in your site/modules/ directory. 
+This module will create templates. Please make sure that permissions of `site/templates` are set to 0777.  
+After successful installation you can undo this.
+
+1. Clone the module and place SimpleContactForm in your `site/modules/` directory. 
 
 	```
 	git clone https://github.com/justonestep/processwire-simplecontactform.git your/path/site/modules/SimpleContactForm
@@ -38,32 +41,6 @@ Current version: 0.0.6 stable
 | antiSpamPerDay     | How often the form is allowed to be submitted by a single IP address in the last 24 hours.                                       |
 | antiSpamExcludeIps | Comma-Seperated list of IP addresses to be excluded from IP filtering.                                                           |
 
-### New Template "simple_contact_form"
-
-* change type="input" due to your own needs
-* hide following fields using css: scf-website, submitted
-* make sure to mainain the names of the fields
-
-tl;dr: These fields will be rendered automatically.
-Therefore a new template called `simple_contact_form.twig` / `simple_contact_form.php` will be created in your `site/templates` directory.
-All fields in this new template will be simple inputs temporarily.
-Once created you can/should modify the template as well as the fields to your own needs, 
-just make sure to maintain the names of the fields. 
-
-### saveMessages enabled? 
-
-* new page **scf-messages** (your-url.xx/scf-messages)
-* new template **simple_contact_form**
-
-tl;dr: If `saveMessages` is enabled, a new page `scf-messages` will be created.
-Also a new repeater field containing all set up fields is added.
-For each received message a new repeater element is stored.
-The new template `simple_contact_form_messages.twig` which is created for this page checks 
-whether the current user is logged into the backend or not.
-If that is the case all received messages will be listed.
-Otherwise the user will be redirected to the root page.
-Failing that the user will be redirected to the root page.
-You can modify that templates for your own needs.
 
 ## Usage:
 
@@ -93,13 +70,42 @@ You can modify that templates for your own needs.
 		{# normal stuff ... #}
 	{% endif %}
 	```
+	
+**Note:** You have to include the module in your own template file first. After that, reload a frontend page using this template. After that, the additional templates are available.
+	
+### New Template "simple_contact_form"
+
+* change type="input" due to your own needs
+* hide following fields using css: scf-website, submitted
+* make sure to mainain the names of the fields
+
+tl;dr: These fields will be rendered automatically.
+Therefore a new template called `simple_contact_form.[twig|php]` will be created in your `site/templates` directory.
+All fields in this new template will be simple inputs temporarily.
+Once created you can/should modify the template as well as the fields to your own needs, 
+just make sure to maintain the names of the fields. 
+
+### saveMessages enabled? 
+
+* new page **scf-messages** (your-url.xx/scf-messages)
+* new template **simple_contact_form**
+
+tl;dr: If `saveMessages` is enabled, a new page `scf-messages` will be created.
+Also a new repeater field containing all set up fields is added.
+For each received message a new repeater element is stored.
+The new template `simple_contact_form_messages.[twig|php]` which is created for this page checks 
+whether the current user is logged into the backend or not.
+If that is the case all received messages will be listed.
+Otherwise the user will be redirected to the root page.
+Failing that the user will be redirected to the root page.
+You can modify that templates for your own needs.
 
 ## Screenshots:
 
 **Module Settings**
 
-![screenshot](screens/settings.png)
+![Backend](https://github.com/justonestep/processwire-simplecontactform/blob/master/screens/settings.png)
 
 **Example scf-messages**
 
-![screenshot](screens/received-messages.png)
+![Backend](https://github.com/justonestep/processwire-simplecontactform/blob/master/screens/received-messages.png)
