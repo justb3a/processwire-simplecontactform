@@ -9,8 +9,7 @@ Current version: 0.0.6 stable
 
 ## Installation:
 
-This module will create templates. Please make sure that permissions of `site/templates` are set to 0777.  
-After successful installation you can undo this.
+This module will create templates. Please make sure that permissions of `site/templates` are set to 0777. After successful installation you can undo this.
 
 1. Clone the module and place SimpleContactForm in your `site/modules/` directory. 
 
@@ -18,7 +17,7 @@ After successful installation you can undo this.
 	git clone https://github.com/justonestep/processwire-simplecontactform.git your/path/site/modules/SimpleContactForm
 	```
 
-2. Login to ProcessWire admin and click Modules. 
+2. Login to ProcessWire admin and click Modules.
 3. Click "Check for new modules".
 4. Click "install" next to the new SimpleContactForm module. 
 5. Enter settings similar to the example below:
@@ -77,7 +76,7 @@ After successful installation you can undo this.
 
 * change type="input" due to your own needs
 * hide following fields using css: scf-website, submitted
-* make sure to mainain the names of the fields
+* make sure to maintain the names of the fields
 
 tl;dr: These fields will be rendered automatically.
 Therefore a new template called `simple_contact_form.[twig|php]` will be created in your `site/templates` directory.
