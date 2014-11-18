@@ -2,18 +2,12 @@
 
 /**
 *
-* By Tabea David
-*
-*/
-
-/**
-*
 * SimpleContactForm
 *
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.6
+* @version 0.0.7
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -42,6 +36,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'antiSpamTimeMax' => '90',
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
+    'antiSpamCountAdditionalInputs' => '5',
     'useTwig' => false
   );
 
@@ -56,7 +51,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 6,
+      'version' => 7,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => false,
@@ -152,25 +147,31 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'type' => 'InputfieldText',
         'description' => 'It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.',
         'size' => 3,
-        'columnWidth' => 25
+        'columnWidth' => 33
       ),
       'antiSpamTimeMax' => array(
         'type' => 'InputfieldText',
         'description' => 'It parses the time the user needs to fill out the form. If the time is over a maximum time, the submission is treated as Spam.',
         'size' => 3,
-        'columnWidth' => 25
+        'columnWidth' => 33
       ),
       'antiSpamPerDay' => array(
         'type' => 'InputfieldText',
         'description' => 'How often the form is allowed to be submitted by a single IP address in the last 24 hours.',
         'size' => 3,
-        'columnWidth' => 25
+        'columnWidth' => 34
       ),
       'antiSpamExcludeIps' => array(
         'type' => 'InputfieldText',
         'description' => 'Comma-Seperated list of IP addresses to be excluded from IP filtering.',
         'size' => 45,
-        'columnWidth' => 25
+        'columnWidth' => 33
+      ),
+      'antiSpamCountAdditionalInputs' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Number of additional inputs. Spam bots often send more than the number of available fields. Default 5 (scf-date + scf-website + submitted + token + submit). AllFields will be added automatically.',
+        'size' => 45,
+        'columnWidth' => 33
       ),
     );
 
@@ -361,9 +362,9 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     // evaluate honeypot
     if (!empty($this->input->post->{'scf-website'})) {
       $spam = true;
-    // } elseif (count($this->allFields) + 4 !== count($this->input->post)) {
+    } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
       // check number of fields
-      // $spam = true;
+      $spam = true;
     } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
       // check HTTP_USER_AGENT
       $spam = true;
