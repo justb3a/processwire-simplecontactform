@@ -5,7 +5,7 @@
 Just a simple contact form. Optional support for Twig ([TemplateTwigReplace](http://modules.processwire.com/modules/template-twig-replace)) as template engine. Not more and not less.
 
 Designed for use with [ProcessWire](http://processwire.com) version 2.5  
-Current version: 0.0.6 stable
+Current version: 0.0.7 stable
 
 ## Installation:
 
