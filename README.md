@@ -22,23 +22,24 @@ This module will create templates. Please make sure that permissions of `site/te
 4. Click "install" next to the new SimpleContactForm module. 
 5. Enter settings similar to the example below:
 
-| setting            | description                                                                                                                      |
-|--------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| saveMessages       | whether to save received messages                                                                                                |
-| useTwig            | Check if you use Twig as template engine                                                                                         |
-| fullName           | Firstname Lastname                                                                                                               |
-| emailTo            | xxx@xxx.xx                                                                                                                       |
-| emailSubject       | New Web Contact Form Submission                                                                                                  |
-| successMessage     | Thank you, your submission has been sent                                                                                         |
-| errorMessage       | Please verify the data you have entered                                                                                          |
-| errorMessage       | noreply@xxx.xx                                                                                                                   |
-| allFields          | fullName,email,message                                                                                                           |
-| requiredFields     | fullName,email,message                                                                                                           |
-| emailField         | email                                                                                                                            |
-| antiSpamTimeMin    | It parses the time the user needs to fill out the form.  If the time is below a minimum time, the submission is treated as Spam. |
-| antiSpamTimeMax    | It parses the time the user needs to fill out the form.  If the time is over a maximum time, the submission is treated as Spam.  |
-| antiSpamPerDay     | How often the form is allowed to be submitted by a single IP address in the last 24 hours.                                       |
-| antiSpamExcludeIps | Comma-Seperated list of IP addresses to be excluded from IP filtering.                                                           |
+| setting                       | description                                                                                                                                                                                         |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| saveMessages                  | whether to save received messages                                                                                                                                                                   |
+| useTwig                       | Check if you use Twig as template engine                                                                                                                                                            |
+| fullName                      | Firstname Lastname                                                                                                                                                                                  |
+| emailTo                       | xxx@xxx.xx                                                                                                                                                                                          |
+| emailSubject                  | New Web Contact Form Submission                                                                                                                                                                     |
+| successMessage                | Thank you, your submission has been sent                                                                                                                                                            |
+| errorMessage                  | Please verify the data you have entered                                                                                                                                                             |
+| errorMessage                  | noreply@xxx.xx                                                                                                                                                                                      |
+| allFields                     | fullName,email,message                                                                                                                                                                              |
+| requiredFields                | fullName,email,message                                                                                                                                                                              |
+| emailField                    | email                                                                                                                                                                                               |
+| antiSpamTimeMin               | It parses the time the user needs to fill out the form.  If the time is below a minimum time, the submission is treated as Spam.                                                                    |
+| antiSpamTimeMax               | It parses the time the user needs to fill out the form.  If the time is over a maximum time, the submission is treated as Spam.                                                                     |
+| antiSpamPerDay                | How often the form is allowed to be submitted by a single IP address in the last 24 hours.                                                                                                          |
+| antiSpamExcludeIps            | Comma-Seperated list of IP addresses to be excluded from IP filtering.                                                                                                                              |
+| antiSpamCountAdditionalInputs | Number of additional inputs. Spam bots often send more than the number of available fields. Default 5 (scf-date + scf-website + submitted + token + submit). AllFields will be added automatically. |
 
 
 ## Usage:
