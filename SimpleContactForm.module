@@ -465,6 +465,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $contactTemplate->slashUrls = 1;
       $contactTemplate->noPrependTemplateFile = 1;
       $contactTemplate->noAppendTemplateFile = 1;
+      $contactTemplate->tags = 'scf';
       $contactTemplate->save();
     }
 
@@ -638,6 +639,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $t->noChildren = 1;
       $t->noPrependTemplateFile = 1;
       $t->noAppendTemplateFile = 1;
+      $t->tags = 'scf';
       $t->save();
 
       // create page
@@ -682,6 +684,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $f->type = $this->modules->get('FieldtypeText');
       $f->name = 'scf_' . $name;
       $f->label = 'SCF - ' . ucfirst($name);
+      $f->tags = 'scf';
       $f->columnWidth = '33';
       $f->save();
     }
@@ -691,6 +694,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $repeaterField->type = $this->modules->get("FieldtypeRepeater");
     $repeaterField->name = $this->repeaterName;
     $repeaterField->label = 'SCF - ' . $this->repeaterName;
+    $repeaterField->tags = 'scf';
     $repeaterField->repeaterReadyItems = 3;
 
     // create fieldgroup
