@@ -37,7 +37,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
     'antiSpamCountAdditionalInputs' => '5',
-    'useTwig' => false
+    'useTwig' => 0
   );
 
   /**
@@ -408,7 +408,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $singleField->name = $inputfield;
       $singleField->placeholder = $inputfield;
 
-      if ($this->useTwig === true) {
+      if ((int)$this->useTwig === 1) {
         $singleField->initValue = '{{input.' . $inputfield . '}}';
       } else {
         $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
@@ -424,7 +424,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $honeyField->initValue = '';
     $form->add($honeyField);
 
-    $scfDate = ($this->useTwig === true) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
+    $scfDate = ((int)$this->useTwig === 1) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
     foreach (array('submitted' => '1', 'scf-date' => $scfDate) as $name => $val) {
       // add hidden field to track wheater the form was submitted and to save current timestamp
       $hiddenField = $this->modules->get('InputfieldHidden');
@@ -468,7 +468,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $contactTemplate->save();
     }
 
-    $ext = ($this->useTwig === true) ? '.twig' : '.php';
+    $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
     $tPath = $this->config->paths->templates . $tName . $ext;
     if (!file_exists($tPath)) {
       // add form
@@ -495,7 +495,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
   private function getFormTemplateContent($form) {
     // combine template parts
-    if ($this->useTwig === true) {
+    if ((int)$this->useTwig === 1) {
       $content = array(
         '<div class="">',
         '{% if input.success %}',
@@ -535,7 +535,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     );
 
     foreach($this->allFieldsExtended as $inputfield) {
-      if ($this->useTwig === true) {
+      if ((int)$this->useTwig === 1) {
         $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
 
         if ($inputfield === $this->emailField) {
@@ -560,7 +560,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
   private function getMessagesTemplateContent($table, $templateName, $repeaterName) {
     // combine template parts
-    if ($this->useTwig === true) {
+    if ((int)$this->useTwig === 1) {
       $content = array(
         '{% if user.hasRole("superuser") %}',
         '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
@@ -651,7 +651,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       $p->save();
     }
 
-    $ext = ($this->useTwig === true) ? '.twig' : '.php';
+    $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
     $tPath = $this->config->paths->templates . $templateName . $ext;
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
