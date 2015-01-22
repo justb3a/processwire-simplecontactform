@@ -306,39 +306,50 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     // no errors - send mail and save message in database
     if ($error === false) {
-      $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
-      // $date = date('d.m.Y - H:i');
-      $date = new DateTime();
-
       $message = array();
       foreach ($this->allFields as $inputfield) {
         $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
       }
+      $date = new DateTime();
       $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
+      // $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
+      // $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
+      // mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
 
-      $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
+      $wireMail = new WireMail();
+      $wireMail->header('X-Mailer', 'WireMail/SimpleContactForm');
+      $wireMail->to($this->data['emailTo']);
+      $wireMail->toName($this->data['fullName']);
+      $wireMail->from($this->data['emailServer']);
+      $wireMail->subject($this->data['emailSubject']);
+      $wireMail->body($message);
+      $numSent = $wireMail->send();
 
-      mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
-      $this->input->post->success = $this->data['successMessage'];
+      if ($numSent > 0) {
+        $this->input->post->success = $this->data['successMessage'];
 
-      // edit page
-      if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
-        $page = $this->pages->findOne('name=' . $this->pageName);
-        $newEntry = $page->{$this->repeaterName}->getNew();
+        // edit page
+        if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
+          $page = $this->pages->findOne('name=' . $this->pageName);
+          $newEntry = $page->{$this->repeaterName}->getNew();
 
-        foreach ($this->allFields as $inputfield) {
-          $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+          foreach ($this->allFields as $inputfield) {
+            $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+          }
+          $newEntry->scf_date = $date->getTimestamp();
+          $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
+
+          $newEntry->save();
+          $page->setOutputFormatting(false);
+          $page->save();
         }
-        $newEntry->scf_date = $date->getTimestamp();
-        $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
 
-        $newEntry->save();
-        $page->setOutputFormatting(false);
-        $page->save();
+        // don't send mail twice, deactivate condition
+        $this->input->post->submitted = NULL;
+      } else {
+        $error = true;
       }
 
-      // don't send mail twice, deactivate condition
-      $this->input->post->submitted = NULL;
     }
 
     $this->input->post->error = $error;
