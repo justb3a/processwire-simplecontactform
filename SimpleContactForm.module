@@ -270,16 +270,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-   * Send Mail
+   * validate Fields
    *
    */
-  public function sendMail() {
+  private function validateFields() {
     $error = false;
-
-    // sanitize form values
     $form = array();
-
-    $this->antiSpam();
 
     // first check valid mail address
     if (!empty($this->emailField)) {
@@ -304,25 +300,40 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       }
     }
 
+    return $error;
+  }
+
+  /**
+   * get mail message content
+   *
+   */
+  private function getMessageContent() {
+    $message = array();
+    foreach ($this->allFields as $inputfield) {
+      $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
+    }
+    $date = new DateTime();
+    $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
+
+    return implode("\r\n", $message);
+  }
+
+  /**
+   * Send Mail
+   *
+   */
+  public function sendMail() {
+    $this->antiSpam();
+    $error = $this->validateFields();
+
     // no errors - send mail and save message in database
     if ($error === false) {
-      $message = array();
-      foreach ($this->allFields as $inputfield) {
-        $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
-      }
-      $date = new DateTime();
-      $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
-      // $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
-      // $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
-      // mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
-
       $wireMail = new WireMail();
-      $wireMail->header('X-Mailer', 'WireMail/SimpleContactForm');
       $wireMail->to($this->data['emailTo']);
       $wireMail->toName($this->data['fullName']);
       $wireMail->from($this->data['emailServer']);
       $wireMail->subject($this->data['emailSubject']);
-      $wireMail->body($message);
+      $wireMail->body($this->getMessageContent());
       $numSent = $wireMail->send();
 
       if ($numSent > 0) {
@@ -336,6 +347,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
           foreach ($this->allFields as $inputfield) {
             $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
           }
+          $date = new DateTime();
           $newEntry->scf_date = $date->getTimestamp();
           $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
 
@@ -349,7 +361,6 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       } else {
         $error = true;
       }
-
     }
 
     $this->input->post->error = $error;
