@@ -270,16 +270,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-   * Send Mail
+   * validate Fields
    *
    */
-  public function sendMail() {
+  private function validateFields() {
     $error = false;
-
-    // sanitize form values
     $form = array();
-
-    $this->antiSpam();
 
     // first check valid mail address
     if (!empty($this->emailField)) {
@@ -304,41 +300,67 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       }
     }
 
+    return $error;
+  }
+
+  /**
+   * get mail message content
+   *
+   */
+  private function getMessageContent() {
+    $message = array();
+    foreach ($this->allFields as $inputfield) {
+      $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
+    }
+    $date = new DateTime();
+    $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
+
+    return implode("\r\n", $message);
+  }
+
+  /**
+   * Send Mail
+   *
+   */
+  public function sendMail() {
+    $this->antiSpam();
+    $error = $this->validateFields();
+
     // no errors - send mail and save message in database
     if ($error === false) {
-      $emailTo = $this->data['fullName'] . ' <' . $this->data['emailTo'] . '>';
-      // $date = date('d.m.Y - H:i');
-      $date = new DateTime();
+      $wireMail = new WireMail();
+      $wireMail->to($this->data['emailTo']);
+      $wireMail->toName($this->data['fullName']);
+      $wireMail->from($this->data['emailServer']);
+      $wireMail->subject($this->data['emailSubject']);
+      $wireMail->body($this->getMessageContent());
+      $numSent = $wireMail->send();
 
-      $message = array();
-      foreach ($this->allFields as $inputfield) {
-        $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
-      }
-      $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
+      if ($numSent > 0) {
+        $this->input->post->success = $this->data['successMessage'];
 
-      $header = "From: " . $this->data['emailServer'] . "\r\n" . "Reply-To: " . $form[$this->emailField] . "\r\n";
+        // edit page
+        if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
+          $page = $this->pages->findOne('name=' . $this->pageName);
+          $newEntry = $page->{$this->repeaterName}->getNew();
 
-      mail($emailTo, $this->data['emailSubject'], implode("\r\n", $message), $header);
-      $this->input->post->success = $this->data['successMessage'];
+          foreach ($this->allFields as $inputfield) {
+            $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+          }
+          $date = new DateTime();
+          $newEntry->scf_date = $date->getTimestamp();
+          $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
 
-      // edit page
-      if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
-        $page = $this->pages->findOne('name=' . $this->pageName);
-        $newEntry = $page->{$this->repeaterName}->getNew();
-
-        foreach ($this->allFields as $inputfield) {
-          $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+          $newEntry->save();
+          $page->setOutputFormatting(false);
+          $page->save();
         }
-        $newEntry->scf_date = $date->getTimestamp();
-        $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
 
-        $newEntry->save();
-        $page->setOutputFormatting(false);
-        $page->save();
+        // don't send mail twice, deactivate condition
+        $this->input->post->submitted = NULL;
+      } else {
+        $error = true;
       }
-
-      // don't send mail twice, deactivate condition
-      $this->input->post->submitted = NULL;
     }
 
     $this->input->post->error = $error;
