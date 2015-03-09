@@ -354,7 +354,7 @@ EOD;
         $this->input->post->success = $this->data['successMessage'];
 
         // edit page
-        if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
+        if ($this->pages->findOne('name=' . $this->pageName) instanceof Pages && $this->saveMessages) {
           $page = $this->pages->findOne('name=' . $this->pageName);
           $newEntry = $page->{$this->repeaterName}->getNew();
 
