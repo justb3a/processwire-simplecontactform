@@ -393,7 +393,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
       // check HTTP_REFERER und HTTP_USER_AGENT
       $spam = true;
-    } elseif (!in_array($currentIp, $excludeIps)) {
+    } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
       // control how often the form is allowed to be submitted by a single IP address
       $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
       $dateSub = new DateTime();
