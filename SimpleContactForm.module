@@ -175,6 +175,20 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       ),
     );
 
+    $help = $modules->get('InputfieldMarkup');
+    $helpContent = <<<EOD
+<h2>Instructions:</h2>
+<ol><li>Create a template for your contact form page (if you don't already have one).</li>
+<li>Add the fields you want to use to this template as you are used to.</li>
+<li>In the template add just one line to include the form:
+<pre>{{modules.get('SimpleContactForm').render()}} // twig</pre>
+<pre>\$modules->get('SimpleContactForm')->render(); //php</pre></li>
+<li>If you want to send the form via ajax, include jquery.simplecontactform.js.</li></ol>
+<p><a href="https://processwire.com/talk/topic/8254-module-simple-contact-form-optional-twig-support/">Read more</a></p>
+EOD;
+    $help->value = $helpContent;
+    $fields->append($help);
+
     // assign fields
     foreach ($settings as $name => $s) {
       $field = $modules->get($s['type']);
