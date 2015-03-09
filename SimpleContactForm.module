@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.8
+* @version 0.0.9
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -51,7 +51,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 8,
+      'version' => 9,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => false,
@@ -174,6 +174,20 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'columnWidth' => 33
       ),
     );
+
+    $help = $modules->get('InputfieldMarkup');
+    $helpContent = <<<EOD
+<h2>Instructions:</h2>
+<ol><li>Create a template for your contact form page (if you don't already have one).</li>
+<li>Add the fields you want to use to this template as you are used to.</li>
+<li>In the template add just one line to include the form:
+<pre>{{modules.get('SimpleContactForm').render()}} // twig</pre>
+<pre>\$modules->get('SimpleContactForm')->render(); //php</pre></li>
+<li>If you want to send the form via ajax, include jquery.simplecontactform.js.</li></ol>
+<p><a href="https://processwire.com/talk/topic/8254-module-simple-contact-form-optional-twig-support/">Read more</a></p>
+EOD;
+    $help->value = $helpContent;
+    $fields->append($help);
 
     // assign fields
     foreach ($settings as $name => $s) {
@@ -340,7 +354,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         $this->input->post->success = $this->data['successMessage'];
 
         // edit page
-        if (!$this->pages->findOne('name=' . $this->pageName) instanceof Pages) {
+        if ($this->pages->findOne('name=' . $this->pageName) instanceof Page && $this->saveMessages) {
           $page = $this->pages->findOne('name=' . $this->pageName);
           $newEntry = $page->{$this->repeaterName}->getNew();
 
@@ -393,7 +407,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
       // check HTTP_REFERER und HTTP_USER_AGENT
       $spam = true;
-    } elseif (!in_array($currentIp, $excludeIps)) {
+    } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
       // control how often the form is allowed to be submitted by a single IP address
       $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
       $dateSub = new DateTime();
