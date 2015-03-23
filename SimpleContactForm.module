@@ -253,7 +253,7 @@ EOD;
       // create a new template for contactPage
       $tName = $this->createContactPage();
 
-      // check whater to save the received messages
+      // check whether to save the received messages
       if (!empty($this->saveMessages)) {
         $this->createReceivedMessagesPage();
       }
@@ -279,6 +279,9 @@ EOD;
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
     }
+
+    $this->input->tokenName  = $this->session->CSRF->getTokenName();
+    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     return $this->contactPage->render();
   }
@@ -395,30 +398,37 @@ EOD;
       $dateDiff = time() - (int)$this->input->post->{'scf-date'};
     }
 
-    // evaluate honeypot
-    if (!empty($this->input->post->{'scf-website'})) {
-      $spam = true;
-    } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
-      // check number of fields
-      $spam = true;
-    } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
-      // check HTTP_USER_AGENT
-      $spam = true;
-    } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
-      // check HTTP_REFERER und HTTP_USER_AGENT
-      $spam = true;
-    } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
-      // control how often the form is allowed to be submitted by a single IP address
-      $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
-      $dateSub = new DateTime();
-      $dateSub->sub(new DateInterval('P1D'));
-      $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+    // validate CSRF token
+    try {
+      $this->session->CSRF->validate();
 
-      if ($totalLast24h >= $this->antiSpamPerDay) {
+      // evaluate honeypot
+      if (!empty($this->input->post->{'scf-website'})) {
+        $spam = true;
+      } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
+        // check number of fields
+        $spam = true;
+      } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
+        // check HTTP_USER_AGENT
+        $spam = true;
+      } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
+        // check HTTP_REFERER und HTTP_USER_AGENT
+        $spam = true;
+      } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
+        // control how often the form is allowed to be submitted by a single IP address
+        $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
+        $dateSub = new DateTime();
+        $dateSub->sub(new DateInterval('P1D'));
+        $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+
+        if ($totalLast24h >= $this->antiSpamPerDay) {
+          $spam = true;
+        }
+      } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
+        // check date difference
         $spam = true;
       }
-    } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
-      // check date difference
+    } catch (WireCSRFException $e) {
       $spam = true;
     }
 
@@ -475,7 +485,14 @@ EOD;
     $submit->value = 'Submit';
     $form->add($submit);
 
-    return $form;
+    // render form and substitute CSRF Token
+    $out = $form->render();
+    $tokenValue = (int)$this->useTwig === 1 ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
+    $tokenName = (int)$this->useTwig === 1 ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
+    $out = preg_replace('/((?<=TOKEN[\dA-Z]{21}[\'"]\s(value=)[\'"])[\da-zA-Z]{33})/', $tokenValue, $out);
+    $out = preg_replace('/(TOKEN[\dA-Z]{21})/', $tokenName,  $out);
+
+    return $out;
   }
 
   /**
@@ -538,7 +555,7 @@ EOD;
         '{% if input.success %}',
         '<p class="success scf-state">{{input.success}}</p>',
         '{% else %}',
-        $form->render(),
+        $form,
         "\n\n" . '{% if input.error %}',
         '<p class="error scf-state">' . $this->errorMessage . '</p>',
         '{% endif %}',
@@ -551,7 +568,7 @@ EOD;
         '<?php if ($input->success) { ?>',
         '<p class=\'success scf-state\'><?= $input->success ?></p>',
         '<?php } else { ?>',
-        $form->render(),
+        $form,
         "\n\n",
         '<?php if ($input->error) { ?>',
         '<p class=\'error scf-state\'>' . $this->errorMessage . '</p>',
