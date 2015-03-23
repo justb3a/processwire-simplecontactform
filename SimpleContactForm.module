@@ -489,8 +489,12 @@ EOD;
     $out = $form->render();
     $tokenValue = (int)$this->useTwig === 1 ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
     $tokenName = (int)$this->useTwig === 1 ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
-    $out = preg_replace('/((?<=TOKEN[\dA-Z]{21}[\'"]\s(value=)[\'"])[\da-zA-Z]{33})/', $tokenValue, $out);
-    $out = preg_replace('/(TOKEN[\dA-Z]{21})/', $tokenName,  $out);
+    // get token name and count string length after TOKEN
+    // look behind does not allow varianble length
+    $token = preg_match('/(?<=TOKEN)[\da-zA-Z]*/', $out, $matches, PREG_OFFSET_CAPTURE);
+    $tokenLength = (strlen($matches[0][0]));
+    $out = preg_replace('/((?<=TOKEN[\dA-Z]{' . $tokenLength . '}[\'"]\s(value=)[\'"])[\da-zA-Z]*)/', $tokenValue, $out);
+    $out = preg_replace('/(TOKEN[\dA-Z]{' . $tokenLength . '})/', $tokenName,  $out);
 
     return $out;
   }
