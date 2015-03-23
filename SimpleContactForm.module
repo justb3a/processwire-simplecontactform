@@ -243,6 +243,9 @@ EOD;
       $this->pages = wire('pages');
       $this->modules = wire('modules');
 
+      // add log file
+      $this->log = new FileLog($this->config->paths->logs . 'simplecontactform-log.txt');
+
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
       $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
@@ -355,6 +358,13 @@ EOD;
 
       if ($numSent > 0) {
         $this->input->post->success = $this->data['successMessage'];
+        $logmessage = array(
+          $_SERVER['HTTP_USER_AGENT'],
+          $_SERVER['REMOTE_ADDR'],
+          $this->sanitizer->text($this->input->post->email)
+        );
+
+        $this->log->save(implode(', ', $logmessage));
 
         // edit page
         if ($this->pages->findOne('name=' . $this->pageName) instanceof Page && $this->saveMessages) {
@@ -491,10 +501,10 @@ EOD;
     $tokenName = (int)$this->useTwig === 1 ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
     // get token name and count string length after TOKEN
     // look behind does not allow varianble length
-    $token = preg_match('/(?<=TOKEN)[\da-zA-Z]*/', $out, $matches, PREG_OFFSET_CAPTURE);
+    $token = preg_match('/(?<=TOKEN)[\dX]*/', $out, $matches, PREG_OFFSET_CAPTURE);
     $tokenLength = (strlen($matches[0][0]));
-    $out = preg_replace('/((?<=TOKEN[\dA-Z]{' . $tokenLength . '}[\'"]\s(value=)[\'"])[\da-zA-Z]*)/', $tokenValue, $out);
-    $out = preg_replace('/(TOKEN[\dA-Z]{' . $tokenLength . '})/', $tokenName,  $out);
+    $out = preg_replace('/((?<=TOKEN[\dX]{' . $tokenLength . '}[\'"]\s(value=)[\'"])[.\/\dA-Za-z]*)/', $tokenValue, $out);
+    $out = preg_replace('/(TOKEN[\dX]{' . $tokenLength . '})/', $tokenName,  $out);
 
     return $out;
   }
