@@ -468,7 +468,7 @@ EOD;
       // additional checks only if save messages feature is turned on
       if ($spam === false && $this->saveMessages) {
         // get all mail addresses marked as spam
-        $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
+        $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages')->{$this->repeaterName};
         $currentIp = $_SERVER['REMOTE_ADDR'];
         $excludeIps = explode(',', $this->antiSpamExcludeIps);
 

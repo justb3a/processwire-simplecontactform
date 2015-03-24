@@ -112,7 +112,12 @@ This module creates two log files.
 If the save messages setting is turned on you have the possibility to mark received messages as spam.
 There are two options:
 
+* mark as spam by mail address
+* mark as spam by ip address
 
+To mark a message as spam go to `Pages Tree > scfmessages > edit`. Each message has two checkboxes to mark either the email address as spam or the ip address.
+
+In order to get the latest message to the beginning of the list, click the `⇧ Sort Inverse` at the right corner of the list.
 
 ## Screenshots:
 
