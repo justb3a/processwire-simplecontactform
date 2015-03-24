@@ -119,6 +119,14 @@ To mark a message as spam go to `Pages Tree > scfmessages > edit`. Each message 
 
 In order to get the latest message to the beginning of the list, click the `⇧ Sort Inverse` at the right corner of the list.
 
+## CSRF token validation
+
+This module uses CSRF token validation, if you don't know what it's all about, have a look [at the ProcessWire Forum](https://processwire.com/talk/topic/3779-use-csrf-in-your-own-forms/).
+
+## Upgrading from <= 0.0.9
+
+sIf you upgrade an existing installation from 0.0.9 and below to the current version, there are some steps to be taken.
+
 ## Screenshots:
 
 **Module Settings**

@@ -394,8 +394,8 @@ EOD;
         $this->log->save(implode(', ', $logmessage));
 
         // edit page
-        if ($this->pages->findOne('name=' . $this->pageName) instanceof Page && $this->saveMessages) {
-          $page = $this->pages->findOne('name=' . $this->pageName);
+        if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
+          $page = $this->pages->findOne('template=simple_contact_form_messages');
           $newEntry = $page->{$this->repeaterName}->getNew();
 
           foreach ($this->allFields as $inputfield) {
