@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.9
+* @version 0.1.0
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -50,8 +50,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   public static function getModuleInfo() {
     return array(
       'title' => 'Simple Contact Form',
-      'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 9,
+      'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
+      'version' => 10,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -605,7 +605,7 @@ EOD;
       // create template file
       $template = fopen($tPath, 'w');
       chmod($tPath, 0766);
-      fwrite($template, html_entity_decode(implode("\n", $content)));
+      fwrite($template, html_entity_decode(implode("\n", $content), ENT_QUOTES));
       fclose($template);
 
       if (!file_exists($tPath)) {

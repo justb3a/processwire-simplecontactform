@@ -1,13 +1,13 @@
 # ProcessWire SimpleContactForm
 
-## Overview:
+## Overview
 
 Just a simple contact form. Optional support for Twig ([TemplateTwigReplace](http://modules.processwire.com/modules/template-twig-replace)) as template engine. Not more and not less.
 
 Designed for use with [ProcessWire](http://processwire.com) version 2.5  
-Current version: 0.0.7 stable
+Current version: 0.1.0 stable
 
-## Installation:
+## Installation
 
 This module will create templates. Please make sure that permissions of `site/templates` are set to 0777. After successful installation you can undo this.
 
@@ -42,7 +42,7 @@ This module will create templates. Please make sure that permissions of `site/te
 | antiSpamCountAdditionalInputs | Number of additional inputs. Spam bots often send more than the number of available fields. Default 5 (scf-date + scf-website + submitted + token + submit). AllFields will be added automatically. |
 
 
-## Usage:
+## Usage
 
 1. Create a template for your contact form page (if you don't already have one).
 2. Add the fields you want to use to this template as you are used to.
@@ -99,6 +99,20 @@ If that is the case all received messages will be listed.
 Otherwise the user will be redirected to the root page.
 Failing that the user will be redirected to the root page.
 You can modify that templates for your own needs.
+
+## Logging
+
+This module creates two log files.
+
+* simplecontactform-log.txt
+* simplecontactform-spam-log.txt
+
+## Mark messages as spam
+
+If the save messages setting is turned on you have the possibility to mark received messages as spam.
+There are two options:
+
+
 
 ## Screenshots:
 
