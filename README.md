@@ -1,13 +1,13 @@
 # ProcessWire SimpleContactForm
 
-## Overview:
+## Overview
 
 Just a simple contact form. Optional support for Twig ([TemplateTwigReplace](http://modules.processwire.com/modules/template-twig-replace)) as template engine. Not more and not less.
 
 Designed for use with [ProcessWire](http://processwire.com) version 2.5  
-Current version: 0.0.7 stable
+Current version: 0.1.0 stable
 
-## Installation:
+## Installation
 
 This module will create templates. Please make sure that permissions of `site/templates` are set to 0777. After successful installation you can undo this.
 
@@ -42,7 +42,7 @@ This module will create templates. Please make sure that permissions of `site/te
 | antiSpamCountAdditionalInputs | Number of additional inputs. Spam bots often send more than the number of available fields. Default 5 (scf-date + scf-website + submitted + token + submit). AllFields will be added automatically. |
 
 
-## Usage:
+## Usage
 
 1. Create a template for your contact form page (if you don't already have one).
 2. Add the fields you want to use to this template as you are used to.
@@ -99,6 +99,53 @@ If that is the case all received messages will be listed.
 Otherwise the user will be redirected to the root page.
 Failing that the user will be redirected to the root page.
 You can modify that templates for your own needs.
+
+## Logging
+
+This module creates two log files.
+
+* simplecontactform-log.txt
+* simplecontactform-spam-log.txt
+
+## Mark messages as spam
+
+If the save messages setting is turned on you have the possibility to mark received messages as spam.
+There are two options:
+
+* mark as spam by mail address
+* mark as spam by ip address
+
+To mark a message as spam go to `Pages Tree > scfmessages > edit`. Each message has two checkboxes to mark, either the email address as spam or the ip address.
+
+In order to get the latest message to the beginning of the list, click the **⇧ Sort Inverse** at the right corner of the list.
+
+## CSRF token validation
+
+This module uses CSRF token validation, if you don't know what it's all about, have a look [at the ProcessWire Forum](https://processwire.com/talk/topic/3779-use-csrf-in-your-own-forms/).
+
+## Upgrading from <= 0.0.9
+
+If you upgrade an existing installation from 0.0.9 and below to the current version, there are some steps to be taken.
+
+1. Upgrade the module source.
+2. Visit the contact page in the frontend to receive all necessary database updates.
+3. Edit page **scfmessages**, go to tab **Settings** and uncheck `Status Locked: Not editable` to be able to mark messages as spam.
+4. Edit template file `simple_contact_form`. Due to the implemented CSRF validation change:
+
+	```php
+	- <input type="hidden" name="TOKEN819808161X1427202408" value="D/iICidOcpcXHyd0lKdDs84qEtNnK..41" class="_post_token">
+	+ <input type='hidden' name='<?= $input->tokenName; ?>' value='<?= $input->tokenValue; ?>' class='_post_token' /> // php
+	+ <input type='hidden' name='{{input->tokenName}}' value='{{input->tokenValue}}' class='_post_token' /> // twig
+	```
+
+5. Edit template file `simple_contact_form_messages` and change the following to receive all messages except the ones marked as spam:
+ 
+	```php
+	- <?php foreach ($currentPage->repeater_scfmessages->sort('-scf-date') as $message) { ?> // php
+	+ <?php foreach ($currentPage->repeater_scfmessages->find("scf_spamIp=,scf_spamMail=")->sort('-scf-date') as $message) { ?> // php
+	- {% for message in currentPage.repeater_scfmessages.sort('-scf_date') %} // twig
+	+ {% for message in currentPage.repeater_scfmessages.find('scf_spamIp=,scf_spamMail=').sort('-scf_date') %} // twig
+	```
 
 ## Screenshots:
 

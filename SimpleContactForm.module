@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.0.9
+* @version 0.1.0
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -50,11 +50,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   public static function getModuleInfo() {
     return array(
       'title' => 'Simple Contact Form',
-      'summary' => 'Just a simple contact form using Twig (TemplateTwigReplace). Not more and not less.',
-      'version' => 9,
+      'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
+      'version' => 10,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
-      'autoload' => false,
+      'autoload' => true,
+      'icon' => 'envelope',
     );
   }
 
@@ -243,6 +244,10 @@ EOD;
       $this->pages = wire('pages');
       $this->modules = wire('modules');
 
+      // add log file
+      $this->log = new FileLog($this->config->paths->logs . 'simplecontactform-log.txt');
+      $this->logSpam = new FileLog($this->config->paths->logs . 'simplecontactform-spam-log.txt');
+
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
       $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
@@ -253,13 +258,38 @@ EOD;
       // create a new template for contactPage
       $tName = $this->createContactPage();
 
-      // check whater to save the received messages
+      // check whether to save the received messages
       if (!empty($this->saveMessages)) {
         $this->createReceivedMessagesPage();
       }
     }
   }
 
+  /**
+   * Initialize the module - ready
+   *
+   * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+   * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+   *
+   * @see http://processwire.com/apigen/class-Module.html
+   *
+   */
+  public function ready() {
+    $this->addHookAfter('ProcessPageEdit::execute', $this, 'addSortRepeaterItemsScript');
+  }
+
+ /**
+  * add sort repeater items script
+  *
+  * @param HookEvent $event
+  */
+  public function addSortRepeaterItemsScript(HookEvent $event) {
+    $this->config->scripts->append($this->config->urls->SimpleContactForm . 'SortRepeaterItems.js');
+  }
+
+ /**
+  * check file permissions
+  */
   private function checkFilePermissions() {
     $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
@@ -279,6 +309,9 @@ EOD;
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
     }
+
+    $this->input->tokenName  = $this->session->CSRF->getTokenName();
+    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     return $this->contactPage->render();
   }
@@ -352,10 +385,17 @@ EOD;
 
       if ($numSent > 0) {
         $this->input->post->success = $this->data['successMessage'];
+        $logmessage = array(
+          $_SERVER['HTTP_USER_AGENT'],
+          $_SERVER['REMOTE_ADDR'],
+          $this->sanitizer->text($this->input->post->email)
+        );
+
+        $this->log->save(implode(', ', $logmessage));
 
         // edit page
-        if ($this->pages->findOne('name=' . $this->pageName) instanceof Page && $this->saveMessages) {
-          $page = $this->pages->findOne('name=' . $this->pageName);
+        if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
+          $page = $this->pages->findOne('template=simple_contact_form_messages');
           $newEntry = $page->{$this->repeaterName}->getNew();
 
           foreach ($this->allFields as $inputfield) {
@@ -387,39 +427,78 @@ EOD;
   protected function antiSpam() {
     $spam = false;
     $bptUserAgents = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
-    $currentIp = $_SERVER['REMOTE_ADDR'];
-    $excludeIps = explode(',', $this->antiSpamExcludeIps);
 
     $dateDiff = 0;
     if (!empty($this->input->post->{'scf-date'})) {
       $dateDiff = time() - (int)$this->input->post->{'scf-date'};
     }
 
-    // evaluate honeypot
-    if (!empty($this->input->post->{'scf-website'})) {
+    // first validate CSRF token
+    try {
+      $this->session->CSRF->validate();
+    } catch (WireCSRFException $e) {
       $spam = true;
-    } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
-      // check number of fields
-      $spam = true;
-    } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
-      // check HTTP_USER_AGENT
-      $spam = true;
-    } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
-      // check HTTP_REFERER und HTTP_USER_AGENT
-      $spam = true;
-    } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
-      // control how often the form is allowed to be submitted by a single IP address
-      $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
-      $dateSub = new DateTime();
-      $dateSub->sub(new DateInterval('P1D'));
-      $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+      $this->logSpam->save('CSRF Token validation failed.');
+    }
 
-      if ($totalLast24h >= $this->antiSpamPerDay) {
+    if ($spam === false) {
+      // always test:
+      if (!empty($this->input->post->{'scf-website'})) {
+        // evaluate honeypot
         $spam = true;
+        $this->logSpam->save('Honeypot field was filled.');
+      } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
+        // check number of fields
+        $spam = true;
+        $this->logSpam->save('Number of fields does not match.');
+      } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
+        // check HTTP_USER_AGENT
+        $spam = true;
+        $this->logSpam->save('User Agent is not allowed.');
+      } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
+        // check HTTP_REFERER und HTTP_USER_AGENT
+        $spam = true;
+        $this->logSpam->save('User Agent and HTTP Referer are empty.');
+      } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
+        // check date difference
+        $spam = true;
+        $this->logSpam->save('Date difference is out of range.');
       }
-    } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
-      // check date difference
-      $spam = true;
+
+      // additional checks only if save messages feature is turned on
+      if ($spam === false && $this->saveMessages) {
+        // get all mail addresses marked as spam
+        $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages')->{$this->repeaterName};
+        $currentIp = $_SERVER['REMOTE_ADDR'];
+        $excludeIps = explode(',', $this->antiSpamExcludeIps);
+
+        // get ips and mail addresses marked as spam
+        $spam = array('ips' => array(), 'mails' => array());
+        $spamMailsMsgs = $receivedMessages->find('scf_spamMail!=');
+        $spamIpsMsgs = $receivedMessages->find('scf_spamIp!=');
+        foreach ($spamMailsMsgs as $spamMsg) { $spam['mails'][] = $spamMsg->scf_email; }
+        foreach ($spamIpsMsgs as $spamMsg) { $spam['ips'][] = $spamMsg->scf_ip; }
+
+        if (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
+          // control how often the form is allowed to be submitted by a single IP address
+          $dateSub = new DateTime();
+          $dateSub->sub(new DateInterval('P1D'));
+          $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+
+          if ($totalLast24h >= $this->antiSpamPerDay) {
+            $spam = true;
+            $this->logSpam->save('This IP address submitted this form too often.');
+          }
+        } elseif (in_array($currentIp, $spam['ips'])) {
+          // check whether ip was already marked as spam
+          $spam = true;
+          $this->logSpam->save("This IP address $currentIp was already marked as spam.");
+        } elseif (in_array($this->input->post->{$this->emailField}, $spam['mails'])) {
+          // check whether mail address was already marked as spam
+          $spam = true;
+          $this->logSpam->save('This mail address ' . $this->input->post->{$this->emailField} . ' was already marked as spam.');
+        }
+      }
     }
 
     if ($spam === true) {
@@ -475,7 +554,18 @@ EOD;
     $submit->value = 'Submit';
     $form->add($submit);
 
-    return $form;
+    // render form and substitute CSRF Token
+    $out = $form->render();
+    $tokenValue = (int)$this->useTwig === 1 ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
+    $tokenName = (int)$this->useTwig === 1 ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
+    // get token name and count string length after TOKEN
+    // look behind does not allow varianble length
+    $token = preg_match('/(?<=TOKEN)[\dX]*/', $out, $matches, PREG_OFFSET_CAPTURE);
+    $tokenLength = (strlen($matches[0][0]));
+    $out = preg_replace('/((?<=TOKEN[\dX]{' . $tokenLength . '}[\'"]\s(value=)[\'"])[.\/\dA-Za-z]*)/', $tokenValue, $out);
+    $out = preg_replace('/(TOKEN[\dX]{' . $tokenLength . '})/', $tokenName,  $out);
+
+    return $out;
   }
 
   /**
@@ -515,7 +605,7 @@ EOD;
       // create template file
       $template = fopen($tPath, 'w');
       chmod($tPath, 0766);
-      fwrite($template, html_entity_decode(implode("\n", $content)));
+      fwrite($template, html_entity_decode(implode("\n", $content), ENT_QUOTES));
       fclose($template);
 
       if (!file_exists($tPath)) {
@@ -538,7 +628,7 @@ EOD;
         '{% if input.success %}',
         '<p class="success scf-state">{{input.success}}</p>',
         '{% else %}',
-        $form->render(),
+        $form,
         "\n\n" . '{% if input.error %}',
         '<p class="error scf-state">' . $this->errorMessage . '</p>',
         '{% endif %}',
@@ -551,7 +641,7 @@ EOD;
         '<?php if ($input->success) { ?>',
         '<p class=\'success scf-state\'><?= $input->success ?></p>',
         '<?php } else { ?>',
-        $form->render(),
+        $form,
         "\n\n",
         '<?php if ($input->error) { ?>',
         '<p class=\'error scf-state\'>' . $this->errorMessage . '</p>',
@@ -609,7 +699,7 @@ EOD;
         '</tr>',
         '</thead>',
         '<tbody>',
-        '{% for message in currentPage.' . $repeaterName . '.sort("-scf_date") %}',
+        '{% for message in currentPage.' . $repeaterName . '.find("scf_spamIp=,scf_spamMail=").sort("-scf_date") %}',
         '<tr>',
         implode("\n", $table['content']),
         '</tr>',
@@ -634,7 +724,7 @@ EOD;
         '</tr>',
         '</thead>',
         '<tbody>',
-        '<?php foreach ($currentPage->' . $repeaterName . '->sort(\'-scf-date\') as $message) { ?>',
+        '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message) { ?>',
         '<tr>',
         implode("\n", $table['content']),
         '</tr>',
@@ -685,8 +775,44 @@ EOD;
       $p->name = $this->pageName;
       $p->title = $this->pageName;
       $p->addStatus(Page::statusHidden);
-      $p->addStatus(Page::statusLocked);
       $p->save();
+    } else {
+      // Upgrade Module from <= v0.0.9
+      if (!is_null($this->fields->get('scf_email')) && is_null($this->fields->get('scf_spamIp')) && is_null($this->fields->get('scf_spamMail'))) {
+        // mark module as autoload
+        $db = wire('database');
+        $table = $db->escapeTable('modules');
+
+        try {
+          $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
+          $query->bindValue(":flags", 3);
+          $query->bindValue(":class", 'SimpleContactForm');
+          $query->execute();
+        } catch(Exception $e) {
+          $this->errors($e->getMessage(), Notice::log);
+        }
+
+        // add fields to mark spam
+        foreach (array('spamIp', 'spamMail') as $name) {
+          preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
+
+          $f = new Field();
+          $f->type = $this->modules->get('FieldtypeCheckbox');
+          $f->name = 'scf_' . $name;
+          $f->label = 'Add ' . $matches[0][0] . ' to spam list';
+          $f->tags = 'scf';
+          $f->columnWidth = '50';
+          $f->save();
+        }
+
+        $repeaterField = $this->fields->get($this->repeaterName);
+
+        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+        foreach (array('spamIp', 'spamMail') as $field) {
+          $repeaterFg->append($this->fields->get('scf_' . $field));
+        }
+        $repeaterFg->save();
+      }
     }
 
     $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
@@ -725,6 +851,22 @@ EOD;
       $f->save();
     }
 
+    foreach (array('spamIp', 'spamMail') as $name) {
+      preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
+
+      $f = new Field();
+      $f->type = $this->modules->get('FieldtypeCheckbox');
+      $f->name = 'scf_' . $name;
+      $f->label = 'Add ' . $matches[0][0] . ' to spam list';
+      $f->tags = 'scf';
+      $f->columnWidth = '50';
+      $f->save();
+    }
+
+    $allFields = $this->allFieldsExtended;
+    $allFields[] = 'spamIp';
+    $allFields[] = 'spamMail';
+
     // create field
     $repeaterField = new Field();
     $repeaterField->type = $this->modules->get("FieldtypeRepeater");
@@ -738,10 +880,9 @@ EOD;
     $repeaterFg->name = 'repeater_' . $this->repeaterName;
 
     // add fields to fieldgroup
-    foreach ($this->allFieldsExtended as $field) {
+    foreach ($allFields as $field) {
       $repeaterFg->append($this->fields->get('scf_' . $field));
     }
-
     $repeaterFg->save();
 
     // create template
@@ -763,7 +904,7 @@ EOD;
     $repeaterField->repeaterReadyItems = 3;
 
     // now, add the fields directly to the repeater field
-    foreach($this->allFieldsExtended as $field) {
+    foreach($allFields as $field) {
       $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
     }
 
