@@ -785,7 +785,7 @@ EOD;
 
         try {
           $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
-          $query->bindValue(":flags", 2);
+          $query->bindValue(":flags", 3);
           $query->bindValue(":class", 'SimpleContactForm');
           $query->execute();
         } catch(Exception $e) {
