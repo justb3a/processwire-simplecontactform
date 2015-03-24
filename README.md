@@ -115,7 +115,7 @@ There are two options:
 * mark as spam by mail address
 * mark as spam by ip address
 
-To mark a message as spam go to `Pages Tree > scfmessages > edit`. Each message has two checkboxes to mark either the email address as spam or the ip address.
+To mark a message as spam go to `Pages Tree > scfmessages > edit`. Each message has two checkboxes to mark, either the email address as spam or the ip address.
 
 In order to get the latest message to the beginning of the list, click the **⇧ Sort Inverse** at the right corner of the list.
 
@@ -130,7 +130,7 @@ If you upgrade an existing installation from 0.0.9 and below to the current vers
 1. Upgrade the module source.
 2. Visit the contact page in the frontend to receive all necessary database updates.
 3. Edit page **scfmessages**, go to tab **Settings** and uncheck `Status Locked: Not editable` to be able to mark messages as spam.
-4. Edit template file `simple_contact_form`. Due to implemented CSRF validation change:
+4. Edit template file `simple_contact_form`. Due to the implemented CSRF validation change:
 
 	```php
 	- <input type="hidden" name="TOKEN819808161X1427202408" value="D/iICidOcpcXHyd0lKdDs84qEtNnK..41" class="_post_token">
