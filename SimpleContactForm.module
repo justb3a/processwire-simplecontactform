@@ -263,10 +263,31 @@ EOD;
     }
   }
 
+  /**
+   * Initialize the module - ready
+   *
+   * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+   * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+   *
+   * @see http://processwire.com/apigen/class-Module.html
+   *
+   */
   public function ready() {
-    $this->config->scripts->add($this->config->urls->SimpleContactForm . 'sortRepeater.js');
+    $this->addHookAfter('ProcessPageEdit::execute', $this, 'addSortRepeaterItemsScript');
   }
 
+ /**
+  * add sort repeater items script
+  *
+  * @param HookEvent $event
+  */
+  public function addSortRepeaterItemsScript(HookEvent $event) {
+    $this->config->scripts->append($this->config->urls->SimpleContactForm . 'SortRepeaterItems.js');
+  }
+
+ /**
+  * check file permissions
+  */
   private function checkFilePermissions() {
     $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
