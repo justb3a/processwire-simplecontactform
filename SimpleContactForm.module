@@ -246,6 +246,7 @@ EOD;
 
       // add log file
       $this->log = new FileLog($this->config->paths->logs . 'simplecontactform-log.txt');
+      $this->logSpam = new FileLog($this->config->paths->logs . 'simplecontactform-spam-log.txt');
 
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
@@ -426,46 +427,78 @@ EOD;
   protected function antiSpam() {
     $spam = false;
     $bptUserAgents = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
-    $currentIp = $_SERVER['REMOTE_ADDR'];
-    $excludeIps = explode(',', $this->antiSpamExcludeIps);
 
     $dateDiff = 0;
     if (!empty($this->input->post->{'scf-date'})) {
       $dateDiff = time() - (int)$this->input->post->{'scf-date'};
     }
 
-    // validate CSRF token
+    // first validate CSRF token
     try {
       $this->session->CSRF->validate();
+    } catch (WireCSRFException $e) {
+      $spam = true;
+      $this->logSpam->save('CSRF Token validation failed.');
+    }
 
-      // evaluate honeypot
+    if ($spam === false) {
+      // always test:
       if (!empty($this->input->post->{'scf-website'})) {
+        // evaluate honeypot
         $spam = true;
+        $this->logSpam->save('Honeypot field was filled.');
       } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
         // check number of fields
         $spam = true;
+        $this->logSpam->save('Number of fields does not match.');
       } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
         // check HTTP_USER_AGENT
         $spam = true;
+        $this->logSpam->save('User Agent is not allowed.');
       } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
         // check HTTP_REFERER und HTTP_USER_AGENT
         $spam = true;
-      } elseif (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
-        // control how often the form is allowed to be submitted by a single IP address
-        $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
-        $dateSub = new DateTime();
-        $dateSub->sub(new DateInterval('P1D'));
-        $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
-
-        if ($totalLast24h >= $this->antiSpamPerDay) {
-          $spam = true;
-        }
+        $this->logSpam->save('User Agent and HTTP Referer are empty.');
       } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
         // check date difference
         $spam = true;
+        $this->logSpam->save('Date difference is out of range.');
       }
-    } catch (WireCSRFException $e) {
-      $spam = true;
+
+      // additional checks only if save messages feature is turned on
+      if ($spam === false && $this->saveMessages) {
+        // get all mail addresses marked as spam
+        $receivedMessages = $this->pages->findOne('name=' . $this->pageName)->{$this->repeaterName};
+        $currentIp = $_SERVER['REMOTE_ADDR'];
+        $excludeIps = explode(',', $this->antiSpamExcludeIps);
+
+        // get ips and mail addresses marked as spam
+        $spam = array('ips' => array(), 'mails' => array());
+        $spamMailsMsgs = $receivedMessages->find('scf_spamMail!=');
+        $spamIpsMsgs = $receivedMessages->find('scf_spamIp!=');
+        foreach ($spamMailsMsgs as $spamMsg) { $spam['mails'][] = $spamMsg->scf_email; }
+        foreach ($spamIpsMsgs as $spamMsg) { $spam['ips'][] = $spamMsg->scf_ip; }
+
+        if (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
+          // control how often the form is allowed to be submitted by a single IP address
+          $dateSub = new DateTime();
+          $dateSub->sub(new DateInterval('P1D'));
+          $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
+
+          if ($totalLast24h >= $this->antiSpamPerDay) {
+            $spam = true;
+            $this->logSpam->save('This IP address submitted this form too often.');
+          }
+        } elseif (in_array($currentIp, $spam['ips'])) {
+          // check whether ip was already marked as spam
+          $spam = true;
+          $this->logSpam->save("This IP address $currentIp was already marked as spam.");
+        } elseif (in_array($this->input->post->{$this->emailField}, $spam['mails'])) {
+          // check whether mail address was already marked as spam
+          $spam = true;
+          $this->logSpam->save('This mail address ' . $this->input->post->{$this->emailField} . ' was already marked as spam.');
+        }
+      }
     }
 
     if ($spam === true) {
