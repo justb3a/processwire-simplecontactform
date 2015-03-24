@@ -55,6 +55,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
+      'icon' => 'envelope',
     );
   }
 
