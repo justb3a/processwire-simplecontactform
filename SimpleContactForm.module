@@ -742,8 +742,44 @@ EOD;
       $p->name = $this->pageName;
       $p->title = $this->pageName;
       $p->addStatus(Page::statusHidden);
-      $p->addStatus(Page::statusLocked);
       $p->save();
+    } else {
+      // Upgrade Module from <= v0.0.9
+      if (!is_null($this->fields->get('scf_email')) && is_null($this->fields->get('scf_spamIp')) && is_null($this->fields->get('scf_spamMail'))) {
+        // mark module as autoload
+        $db = wire('database');
+        $table = $db->escapeTable('modules');
+
+        try {
+          $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
+          $query->bindValue(":flags", 2);
+          $query->bindValue(":class", 'SimpleContactForm');
+          $query->execute();
+        } catch(Exception $e) {
+          $this->errors($e->getMessage(), Notice::log);
+        }
+
+        // add fields to mark spam
+        foreach (array('spamIp', 'spamMail') as $name) {
+          preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
+
+          $f = new Field();
+          $f->type = $this->modules->get('FieldtypeCheckbox');
+          $f->name = 'scf_' . $name;
+          $f->label = 'Add ' . $matches[0][0] . ' to spam list';
+          $f->tags = 'scf';
+          $f->columnWidth = '50';
+          $f->save();
+        }
+
+        $repeaterField = $this->fields->get($this->repeaterName);
+
+        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+        foreach (array('spamIp', 'spamMail') as $field) {
+          $repeaterFg->append($this->fields->get('scf_' . $field));
+        }
+        $repeaterFg->save();
+      }
     }
 
     $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
@@ -782,6 +818,22 @@ EOD;
       $f->save();
     }
 
+    foreach (array('spamIp', 'spamMail') as $name) {
+      preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
+
+      $f = new Field();
+      $f->type = $this->modules->get('FieldtypeCheckbox');
+      $f->name = 'scf_' . $name;
+      $f->label = 'Add ' . $matches[0][0] . ' to spam list';
+      $f->tags = 'scf';
+      $f->columnWidth = '50';
+      $f->save();
+    }
+
+    $allFields = $this->allFieldsExtended;
+    $allFields[] = 'spamIp';
+    $allFields[] = 'spamMail';
+
     // create field
     $repeaterField = new Field();
     $repeaterField->type = $this->modules->get("FieldtypeRepeater");
@@ -795,10 +847,9 @@ EOD;
     $repeaterFg->name = 'repeater_' . $this->repeaterName;
 
     // add fields to fieldgroup
-    foreach ($this->allFieldsExtended as $field) {
+    foreach ($allFields as $field) {
       $repeaterFg->append($this->fields->get('scf_' . $field));
     }
-
     $repeaterFg->save();
 
     // create template
@@ -820,7 +871,7 @@ EOD;
     $repeaterField->repeaterReadyItems = 3;
 
     // now, add the fields directly to the repeater field
-    foreach($this->allFieldsExtended as $field) {
+    foreach($allFields as $field) {
       $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
     }
 
