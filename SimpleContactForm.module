@@ -54,7 +54,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       'version' => 9,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
-      'autoload' => false,
+      'autoload' => true,
     );
   }
 
@@ -261,6 +261,10 @@ EOD;
         $this->createReceivedMessagesPage();
       }
     }
+  }
+
+  public function ready() {
+    $this->config->scripts->add($this->config->urls->SimpleContactForm . 'sortRepeater.js');
   }
 
   private function checkFilePermissions() {
