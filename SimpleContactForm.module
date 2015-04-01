@@ -19,6 +19,11 @@
 class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
   /**
+   * @field string class
+   */
+  protected static $class = 'SimpleContactForm';
+
+  /**
    * @field array Default config values
    */
   protected static $defaults = array(
@@ -76,6 +81,11 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $data = array_merge(self::$defaults, $data);
 
     $settings = array(
+      'general' => array(
+        'type' => 'InputfieldMarkup',
+        'value' => '<h2>&#8595; General</h2>',
+        'columnWidth' => 100
+      ),
       'saveMessages' => array(
         'type' => 'InputfieldCheckbox',
         'description' => 'Save Messages',
@@ -88,43 +98,58 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'checked' => empty($data['useTwig']) ? '' : 'checked',
         'columnWidth' => 50
       ),
+      'email' => array(
+        'type' => 'InputfieldMarkup',
+        'value' => '<h2>&#8595; EMail</h2>',
+        'columnWidth' => 100
+      ),
       'fullName' => array(
         'type' => 'InputfieldText',
         'description' => 'Full name of the recipient',
         'size' => 45,
         'placeholder' => 'firstname lastname',
-        'columnWidth' => 33
+        'columnWidth' => 50
       ),
       'emailTo' => array(
         'type' => 'InputfieldText',
         'description' => 'E-mail address of the recipient',
         'size' => 45,
         'placeholder' => 'xxx@xxx.xx',
-        'columnWidth' => 33
+        'columnWidth' => 50
       ),
       'emailSubject' => array(
         'type' => 'InputfieldText',
         'description' => 'E-Mail subject',
         'size' => 45,
-        'columnWidth' => 34
+        'columnWidth' => 50
       ),
       'emailServer' => array(
         'type' => 'InputfieldText',
         'description' => 'Server address',
         'size' => 45,
-        'columnWidth' => 33
+        'columnWidth' => 50
+      ),
+      'messages' => array(
+        'type' => 'InputfieldMarkup',
+        'value' => '<h2>&#8595; Messages</h2>',
+        'columnWidth' => 100
       ),
       'successMessage' => array(
-        'type' => 'InputfieldText',
+        'type' => 'InputfieldTextarea',
         'description' => 'Success message',
-        'size' => 45,
-        'columnWidth' => 33
+        'rows' => 2,
+        'columnWidth' => 50
       ),
       'errorMessage' => array(
-        'type' => 'InputfieldText',
+        'type' => 'InputfieldTextarea',
         'description' => 'Error message',
-        'size' => 45,
-        'columnWidth' => 34
+        'rows' => 2,
+        'columnWidth' => 50
+      ),
+      'fields' => array(
+        'type' => 'InputfieldMarkup',
+        'value' => '<h2>&#8595; Fields</h2>',
+        'columnWidth' => 100
       ),
       'allFields' => array(
         'type' => 'InputfieldTextarea',
@@ -143,6 +168,11 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'description' => 'field, which should be validated as an E-mail address',
         'size' => 45,
         'columnWidth' => 34
+      ),
+      'spam' => array(
+        'type' => 'InputfieldMarkup',
+        'value' => '<h2>&#8595; Spam</h2>',
+        'columnWidth' => 100
       ),
       'antiSpamTimeMin' => array(
         'type' => 'InputfieldText',
@@ -194,8 +224,11 @@ EOD;
     foreach ($settings as $name => $s) {
       $field = $modules->get($s['type']);
       $field->name = $name;
-      $field->label = $name;
-      $field->value = $data[$name];
+
+      if ($s['type'] != 'InputfieldMarkup') {
+        $field->label = $name;
+        $field->value = $data[$name];
+      }
 
       foreach ($s as $key => $val) {
         if ($key != 'type') {
@@ -256,9 +289,11 @@ EOD;
       $this->repeaterName = 'repeater_scfmessages';
 
       // create a new template for contactPage
-      $tName = $this->createContactPage();
+      // @todo: combine with on save module config data
+      $this->createContactPage();
 
       // check whether to save the received messages
+      // @todo: combine with on save module config data
       if (!empty($this->saveMessages)) {
         $this->createReceivedMessagesPage();
       }
@@ -276,6 +311,7 @@ EOD;
    */
   public function ready() {
     $this->addHookAfter('ProcessPageEdit::execute', $this, 'addSortRepeaterItemsScript');
+    $this->addHookBefore('Modules::saveModuleConfigData', $this, 'buildTemplatesOnSaveModuleConfigData');
   }
 
  /**
@@ -308,10 +344,11 @@ EOD;
     // validate form and send mail
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
+    } else {
+      // set CSRF token name and value
+      $this->input->tokenName  = $this->session->CSRF->getTokenName();
+      $this->input->tokenValue = $this->session->CSRF->getTokenValue();
     }
-
-    $this->input->tokenName  = $this->session->CSRF->getTokenName();
-    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     return $this->contactPage->render();
   }
@@ -574,7 +611,7 @@ EOD;
   */
   protected function createContactPage() {
     $this->contactPage = new Page();
-    $tName = 'simple_contact_form';
+    $tName = $this->decamelize(self::$class);
 
     // create a new template for contactPage - database
     if (!$this->templates->get($tName) instanceof Template) {
@@ -638,15 +675,15 @@ EOD;
     } else {
       $content = array(
         '<div class="">',
-        '<?php if ($input->success) { ?>',
+        '<?php if ($input->success): ?>',
         '<p class=\'success scf-state\'><?= $input->success ?></p>',
-        '<?php } else { ?>',
+        '<?php else: ?>',
         $form,
         "\n\n",
-        '<?php if ($input->error) { ?>',
+        '<?php if ($input->error): ?>',
         '<p class=\'error scf-state\'>' . $this->errorMessage . '</p>',
-        '<?php }',
-        '} ?>',
+        '<?php endif; ?>',
+        '<?php endif; ?>',
         '</div>'
       );
     }
@@ -714,7 +751,7 @@ EOD;
     } else {
       $content = array(
         '<?php',
-        'if ($user->hasRole("superuser")) {',
+        'if ($user->hasRole("superuser")):',
         '$currentPage = $this->pages->findOne("template=\'' . $templateName . '\'"); ?>',
         '<h1><?= $currentPage->title; ?></h1>',
         '<table>',
@@ -724,16 +761,16 @@ EOD;
         '</tr>',
         '</thead>',
         '<tbody>',
-        '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message) { ?>',
+        '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message): ?>',
         '<tr>',
         implode("\n", $table['content']),
         '</tr>',
-        '<?php } ?>',
+        '<?php endforeach; ?>',
         '</tbody>',
         '</table>',
-        '<?php } else { ',
-        '$session->redirect($pages->get("/")->url);',
-        '}?>'
+        '<?php else: ?>',
+        '<?php $session->redirect($pages->get("/")->url); ?>',
+        '<?php endif; ?>'
       );
     }
 
@@ -904,7 +941,7 @@ EOD;
     $repeaterField->repeaterReadyItems = 3;
 
     // now, add the fields directly to the repeater field
-    foreach($allFields as $field) {
+    foreach( $allFields as $field) {
       $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
     }
 
@@ -914,12 +951,117 @@ EOD;
   }
 
   /**
+   * Hook 
+   *
+   * @param HookEvent $event
+   */
+  public function buildTemplatesOnSaveModuleConfigData(HookEvent $event) {
+    if ($event->arguments[0] === self::$class) {
+      $configDataUntilNow = $this->modules->getModuleConfigData(self::$class);
+      $configDataUpdated = $event->arguments[1];
+
+      $configDataDiff = array_diff($configDataUpdated, $configDataUntilNow);
+
+      // @todo: success and error messages
+
+      // @todo:
+      // check for existing template
+      // if there is none, create it
+      // remove from init? -> outsource and recheck/recall
+
+      // update existing template
+      // @todo: wrap into single function
+      if (!empty($configDataDiff)) {
+        // check messages - success and error
+        foreach ($configDataDiff as $key => $value) {
+          if (preg_match('/allFields/', $key)) {
+            // check for new fields
+            $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
+            $fieldsNew = array();
+            foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
+              if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
+                $fieldsNew[] = $field;
+              }
+            }
+
+            if (!empty($fieldsNew)) {
+              $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+              $inputfields = new InputfieldWrapper();
+
+              // yeah, there are some new fields to add
+              foreach ($fieldsNew as $key => $name) {
+                // REAL FIELD INCLUDING TABLE
+                // check for existing table
+                if (is_null($this->fields->get('scf_' . $name))) {
+                  $f = new Field();
+                  $f->type = $this->modules->get('FieldtypeText');
+                  $f->name = 'scf_' . $name;
+                  $f->label = 'SCF - ' . ucfirst($name);
+                  $f->tags = 'scf';
+                  $f->columnWidth = '33';
+                  $f->save();
+
+                  if (is_null($repeaterFg->getField($name))) {
+                    $repeaterFg->append($f);
+                  }
+                }
+
+                // HTML OUTPUT
+                $singleField = $this->modules->get('InputfieldText');
+                $singleField->name = $name;
+                $singleField->placeholder = $name;
+
+                if ((int)$configDataUpdated['useTwig'] === 1) {
+                  $singleField->initValue = '{{input.' . $name . '}}';
+                  $fileExtension = '.twig';
+                } else {
+                  $singleField->initValue = '<?= $input->' . $name . '; ?>';
+                  $fileExtension = '.php';
+                }
+
+                $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
+                if (in_array($name, $requiredFields)) $singleField->required = true;
+                $inputfields->add($singleField);
+              }
+
+              $repeaterFg->save();
+
+              // prepend new fields in template
+              $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
+              $tContent = file_get_contents($t);
+              $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
+              $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
+
+              $template = fopen($t, 'w');
+              chmod($t, 0766);
+              fwrite($template, html_entity_decode($newContent));
+              fclose($template);
+            }
+          }
+        }
+      }
+
+    }
+  }
+
+  public function decamelize($word) {
+    return strtolower(preg_replace('/(?!^)[[:upper:]]+/', '_$0', $word));
+  }
+
+  // @todo:
+  //   add uninstall function
+  //   cleanup all stuff but not per default
+  //   provide checkbox and some hints
+
+  /**
   *
   * install routine
   */
   public function ___install() {
     // check file permissions
     $this->checkFilePermissions();
+
+    wire('modules')->saveModuleConfigData($this, self::$defaults); 
   }
 
 }
