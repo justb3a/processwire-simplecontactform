@@ -942,7 +942,7 @@ EOD;
     $repeaterField->repeaterReadyItems = 3;
 
     // now, add the fields directly to the repeater field
-    foreach( $allFields as $field) {
+    foreach ($allFields as $field) {
       $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
     }
 
@@ -961,7 +961,7 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::$class);
       $configDataUpdated = $event->arguments[1];
 
-      $configDataDiff = array_diff($configDataUpdated, $configDataUntilNow);
+      // @todo: saveMessages template: add/remove fields
 
       // @todo: success and error messages
 
@@ -970,82 +970,165 @@ EOD;
       // if there is none, create it
       // remove from init? -> outsource and recheck/recall
 
+      // @todo:
+      // remove removed fields from fieldgroup
+      // from template remove it manually? or maybe regex <input ... name="$name" .../>
+      $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
+      if (!empty($configDataDiffRemove)) {
+        $this->removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffRemove);
+      }
+
       // update existing template
-      // @todo: wrap into single function
-      if (!empty($configDataDiff)) {
-        // check messages - success and error
-        foreach ($configDataDiff as $key => $value) {
-          if (preg_match('/allFields/', $key)) {
-            // check for new fields
-            $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
-            $fieldsNew = array();
-            foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
-              if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
-                $fieldsNew[] = $field;
-              }
-            }
-
-            if (!empty($fieldsNew)) {
-              $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-              $inputfields = new InputfieldWrapper();
-
-              // yeah, there are some new fields to add
-              foreach ($fieldsNew as $key => $name) {
-                // REAL FIELD INCLUDING TABLE
-                // check for existing table
-                if (is_null($this->fields->get('scf_' . $name))) {
-                  $f = new Field();
-                  $f->type = $this->modules->get('FieldtypeText');
-                  $f->name = 'scf_' . $name;
-                  $f->label = 'SCF - ' . ucfirst($name);
-                  $f->tags = 'scf';
-                  $f->columnWidth = '25';
-                  $f->save();
-
-                  if (is_null($repeaterFg->getField($name))) {
-                    // @todo: use insert before add ip to spam (if exists)
-                    $repeaterFg->append($f);
-                  }
-                }
-
-                // HTML OUTPUT
-                $singleField = $this->modules->get('InputfieldText');
-                $singleField->name = $name;
-                $singleField->placeholder = $name;
-
-                if ((int)$configDataUpdated['useTwig'] === 1) {
-                  $singleField->initValue = '{{input.' . $name . '}}';
-                  $fileExtension = '.twig';
-                } else {
-                  $singleField->initValue = '<?= $input->' . $name . '; ?>';
-                  $fileExtension = '.php';
-                }
-
-                $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
-                if (in_array($name, $requiredFields)) $singleField->required = true;
-                $inputfields->add($singleField);
-              }
-
-              $repeaterFg->save();
-
-              // prepend new fields in template
-              $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
-              $tContent = file_get_contents($t);
-              $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
-              $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
-
-              $template = fopen($t, 'w');
-              chmod($t, 0766);
-              fwrite($template, html_entity_decode($newContent));
-              fclose($template);
-            }
-          }
-        }
+      $configDataDiffAdd = array_diff($configDataUpdated, $configDataUntilNow);
+      if (!empty($configDataDiffAdd)) {
+        $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
       }
 
     }
   }
 
+  /*
+   * remove fields from an existing contact form template
+   *
+   * @param array $configDataUntilNow
+   * @param array $configDataUpdated
+   * @param array $configDataDiff
+   */
+  protected function removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
+    // check messages - success and error
+    foreach ($configDataDiff as $key => $value) {
+      if (preg_match('/allFields/', $key)) {
+        // check for new fields
+        $fieldsUpdated = explode(',', preg_replace('/\s+/', '', $configDataUpdated['allFields']));
+        $fieldsRemoved = array();
+        foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
+          if (!array_key_exists($field, array_flip($fieldsUpdated))) {
+            $fieldsRemoved[] = $field;
+          }
+        }
+
+        if (!empty($fieldsRemoved)) {
+          $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+          $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+          $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
+          $tContent = file_get_contents($t);
+
+          // yeah, there are some fields to remove
+          foreach ($fieldsRemoved as $key => $name) {
+            // REAL FIELD INCLUDING TABLE
+            // check for existing table
+            if (!is_null($this->fields->get('scf_' . $name))) {
+              if (!is_null($repeaterFg->getField('scf_' . $name))) {
+                $repeaterFg->remove($this->fields->get('scf_' . $name));
+              }
+            }
+
+            // HTML OUTPUT
+            // remove fields from template
+            // remove just label and input, you have to remove additional markup manually
+            $split = preg_split('/(<label).*(for=[\'"]).*(' . $name . '[\'"])(>).*(<\/label>)/', $tContent);
+            if (count($split) > 1) $tContent = implode('', $split);
+            $split = preg_split('/(<input).*(name=[\'"]' . $name . '[\'"]).*(\/>)/', $tContent);
+            $tContent = implode('', $split);
+          }
+
+          $repeaterFg->save();
+
+          $template = fopen($t, 'w');
+          chmod($t, 0766);
+          fwrite($template, html_entity_decode($tContent));
+          fclose($template);
+        }
+      }
+    }
+  }
+
+  /*
+   * add fields to an existing contact form template
+   *
+   * @param array $configDataUntilNow
+   * @param array $configDataUpdated
+   * @param array $configDataDiff
+   */
+  protected function addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
+    // check messages - success and error
+    foreach ($configDataDiff as $key => $value) {
+      if (preg_match('/allFields/', $key)) {
+        // check for new fields
+        $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
+        $fieldsNew = array();
+        foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
+          if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
+            $fieldsNew[] = $field;
+          }
+        }
+
+        if (!empty($fieldsNew)) {
+          $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+          $inputfields = new InputfieldWrapper();
+
+          // yeah, there are some new fields to add
+          foreach ($fieldsNew as $key => $name) {
+            // REAL FIELD INCLUDING TABLE
+            // check for existing table
+            if (is_null($this->fields->get('scf_' . $name))) {
+              $f = new Field();
+              $f->type = $this->modules->get('FieldtypeText');
+              $f->name = 'scf_' . $name;
+              $f->label = 'SCF - ' . ucfirst($name);
+              $f->tags = 'scf';
+              $f->columnWidth = '25';
+              $f->save();
+
+              if (is_null($repeaterFg->getField('scf_' . $name))) {
+                if (is_null($this->fields->get('scf_spamIp'))) {
+                  $repeaterFg->append($f);
+                } else {
+                  $repeaterFg->insertBefore($f, $this->fields->get('scf_spamIp'));
+                }
+              }
+            }
+
+            // HTML OUTPUT
+            $singleField = $this->modules->get('InputfieldText');
+            $singleField->name = $name;
+            $singleField->placeholder = $name;
+
+            if ((int)$configDataUpdated['useTwig'] === 1) {
+              $singleField->initValue = '{{input.' . $name . '}}';
+              $fileExtension = '.twig';
+            } else {
+              $singleField->initValue = '<?= $input->' . $name . '; ?>';
+              $fileExtension = '.php';
+            }
+
+            $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
+            if (in_array($name, $requiredFields)) $singleField->required = true;
+            $inputfields->add($singleField);
+          }
+
+          $repeaterFg->save();
+
+          // prepend new fields in template
+          $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
+          $tContent = file_get_contents($t);
+          $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
+          $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
+
+          $template = fopen($t, 'w');
+          chmod($t, 0766);
+          fwrite($template, html_entity_decode($newContent));
+          fclose($template);
+        }
+      }
+    }
+  }
+
+  /*
+   * decamelize - CamelCase to lower_case_and_underscore
+   *
+   * @param string $word
+   */
   public function decamelize($word) {
     return strtolower(preg_replace('/(?!^)[[:upper:]]+/', '_$0', $word));
   }
