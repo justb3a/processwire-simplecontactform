@@ -815,6 +815,7 @@ EOD;
       $p->save();
     } else {
       // Upgrade Module from <= v0.0.9
+      // @todo: add first! on save module config data and outsource
       if (!is_null($this->fields->get('scf_email')) && is_null($this->fields->get('scf_spamIp')) && is_null($this->fields->get('scf_spamMail'))) {
         // mark module as autoload
         $db = wire('database');
@@ -884,7 +885,7 @@ EOD;
       $f->name = 'scf_' . $name;
       $f->label = 'SCF - ' . ucfirst($name);
       $f->tags = 'scf';
-      $f->columnWidth = '33';
+      $f->columnWidth = '25';
       $f->save();
     }
 
@@ -998,10 +999,11 @@ EOD;
                   $f->name = 'scf_' . $name;
                   $f->label = 'SCF - ' . ucfirst($name);
                   $f->tags = 'scf';
-                  $f->columnWidth = '33';
+                  $f->columnWidth = '25';
                   $f->save();
 
                   if (is_null($repeaterFg->getField($name))) {
+                    // @todo: use insert before add ip to spam (if exists)
                     $repeaterFg->append($f);
                   }
                 }
