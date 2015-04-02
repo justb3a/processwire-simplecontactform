@@ -680,19 +680,23 @@ EOD;
 
     foreach($this->allFieldsExtended as $inputfield) {
       if ((int)$this->useTwig === 1) {
-        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
+        $table['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
 
         if ($inputfield === $this->emailField) {
           $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
+        } elseif ($inputfield === 'date') {
+          $table['content'][] = '<td>{{message.scf_' . $inputfield . '|date("d.m.Y H:i")}}</td>';
         } else {
           $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
         }
       } else {
-        $table['head'][] = '<th>' . ucfirst($inputfield) . '</th>';
+        $table['head'][] = '<th><?= $fields->get("scf_' . $inputfield . '")->label; ?></th>';
 
         $input = "scf_{$inputfield}";
         if ($inputfield === $this->emailField) {
           $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
+        } elseif ($inputfield === 'date') {
+          $table['content'][] = '<td><?= date("d.m.Y H:i", $message->' . $input . '); ?></td>';
         } else {
           $table['content'][] = '<td><?= $message->' . $input . '; ?></td>';
         }
@@ -758,10 +762,10 @@ EOD;
   }
 
   /**
-  * create a page for holding the received messages
-  *
-  * @param string $templateName
-  */
+   * create a page for holding the received messages
+   *
+   * @param string $templateName
+   */
   protected function createReceivedMessagesPage($templateName) {
     // create repeater field
     $repeaterField = $this->createRepeater();
@@ -791,7 +795,14 @@ EOD;
     $p->title = $this->pageName;
     $p->addStatus(Page::statusHidden);
     $p->save();
+  }
 
+  /**
+   * create a page for holding the received messages
+   *
+   * @param string $templateName
+   */
+  private function createReceivedMessagesTemplate($templateName) {
     $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
     $tPath = $this->config->paths->templates . $templateName . $ext;
     if (!file_exists($tPath)) {
@@ -804,7 +815,7 @@ EOD;
       fwrite($template, html_entity_decode(implode("\n", $content)));
       fclose($template);
 
-      if (!file_exists($twigname)) {
+      if (!file_exists($tPath)) {
         throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
       }
     }
@@ -905,6 +916,20 @@ EOD;
       $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
       $tPath = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
 
+      // check whether to save the received messages
+      if (!empty($configDataUpdated['saveMessages'])) {
+        $tName = $this->decamelize(self::$class . 'Messages');
+
+        if (!$this->templates->get($tName) instanceof Template) {
+          $this->createReceivedMessagesPage($tName);
+        } else {
+          // upgrade module from <= v0.0.9
+          $this->upgradeModuleLte009Fields();
+        }
+
+        $this->createReceivedMessagesTemplate($tName);
+      }
+
       // check for existing template
       if (!file_exists($tPath)) {
         // create new template
@@ -920,18 +945,6 @@ EOD;
         $configDataDiffAdd = array_diff($configDataUpdated, $configDataUntilNow);
         if (!empty($configDataDiffAdd)) {
           $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
-        }
-      }
-
-      // check whether to save the received messages
-      if (!empty($configDataUpdated['saveMessages'])) {
-        $tName = $this->decamelize(self::$class . 'Messages');
-
-        if (!$this->templates->get($tName) instanceof Template) {
-          $this->createReceivedMessagesPage($tName);
-        } else {
-          // upgrade module from <= v0.0.9
-          $this->upgradeModuleLte009Fields();
         }
       }
       // @todo: saveMessages template: add/remove fields
