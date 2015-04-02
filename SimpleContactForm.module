@@ -243,18 +243,6 @@ EOD;
   }
 
   /**
-   * Instance of Page, that we use to hold our submitted contact info.
-   *
-   */
-  protected $contactPage;
-
-  /**
-   * Instance of InputfieldForm that we use to hold our form fields.
-   *
-   */
-  protected $form;
-
-  /**
    * Initialize the module
    * Initialize a new web contact form
    *
@@ -269,17 +257,22 @@ EOD;
    *
    */
   public function init() {
-    if (!empty($this->modules->getInstall('SimpleContactForm')->data)) {
-      // assign API variables to make things a little easier
-      $this->templates = wire('templates');
-      $this->input = wire('input');
-      $this->sanitizer = wire('sanitizer');
-      $this->pages = wire('pages');
-      $this->modules = wire('modules');
+    // check if module is autoload, if not, change it
+    if (!$this->modules->isAutoload($this->modules->get(self::$class))) {
+      $this->upgradeModuleLte009Flags();
+    }
 
+    // assign API variables to make things a little easier
+    $this->templates = wire('templates');
+    $this->input = wire('input');
+    $this->sanitizer = wire('sanitizer');
+    $this->pages = wire('pages');
+    $this->modules = wire('modules');
+
+    if (!empty($this->modules->getInstall(self::$class)->data)) {
       // add log file
-      $this->log = new FileLog($this->config->paths->logs . 'simplecontactform-log.txt');
-      $this->logSpam = new FileLog($this->config->paths->logs . 'simplecontactform-spam-log.txt');
+      $this->log = new FileLog($this->config->paths->logs . strtolower(self::$class) . '-log.txt');
+      $this->logSpam = new FileLog($this->config->paths->logs . strtolower(self::$class) . '-spam-log.txt');
 
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
@@ -287,16 +280,6 @@ EOD;
       $this->allFields = explode(',', $this->allFields);
       $this->pageName = 'scf-messages';
       $this->repeaterName = 'repeater_scfmessages';
-
-      // create a new template for contactPage
-      // @todo: combine with on save module config data
-      $this->createContactPage();
-
-      // check whether to save the received messages
-      // @todo: combine with on save module config data
-      if (!empty($this->saveMessages)) {
-        $this->createReceivedMessagesPage();
-      }
     }
   }
 
@@ -320,7 +303,7 @@ EOD;
   * @param HookEvent $event
   */
   public function addSortRepeaterItemsScript(HookEvent $event) {
-    $this->config->scripts->append($this->config->urls->SimpleContactForm . 'SortRepeaterItems.js');
+    $this->config->scripts->append($this->config->urls->{self::$class} . 'SortRepeaterItems.js');
   }
 
  /**
@@ -339,8 +322,6 @@ EOD;
    *
    */
   public function ___render() {
-    if (!$this->contactPage->template) throw new WireException("No Template was found.");
-
     // validate form and send mail
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
@@ -350,7 +331,9 @@ EOD;
       $this->input->tokenValue = $this->session->CSRF->getTokenValue();
     }
 
-    return $this->contactPage->render();
+    $contactPage = new Page();
+    $contactPage->set('template', $this->decamelize(self::$class));
+    return $contactPage->render();
   }
 
   /**
@@ -454,7 +437,8 @@ EOD;
       }
     }
 
-    $this->input->post->error = $error;
+    // set error message
+    if ($error === true) $this->input->post->error = $this->data['errorMessage'];
   }
 
   /**
@@ -610,7 +594,6 @@ EOD;
   *
   */
   protected function createContactPage() {
-    $this->contactPage = new Page();
     $tName = $this->decamelize(self::$class);
 
     // create a new template for contactPage - database
@@ -651,9 +634,6 @@ EOD;
     } else {
       $contactTemplate = $this->templates->get($tName);
     }
-
-    // set template
-    $this->contactPage->set('template', $tName);
   }
 
 
@@ -667,7 +647,7 @@ EOD;
         '{% else %}',
         $form,
         "\n\n" . '{% if input.error %}',
-        '<p class="error scf-state">' . $this->errorMessage . '</p>',
+        '<p class="error scf-state">{{input.error}}</p>',
         '{% endif %}',
         '{% endif %}',
         '</div>'
@@ -676,12 +656,12 @@ EOD;
       $content = array(
         '<div class="">',
         '<?php if ($input->success): ?>',
-        '<p class=\'success scf-state\'><?= $input->success ?></p>',
+        '<p class=\'success scf-state\'><?= $input->success; ?></p>',
         '<?php else: ?>',
         $form,
         "\n\n",
         '<?php if ($input->error): ?>',
-        '<p class=\'error scf-state\'>' . $this->errorMessage . '</p>',
+        '<p class=\'error scf-state\'><?= $input->error; ?></p>',
         '<?php endif; ?>',
         '<?php endif; ?>',
         '</div>'
@@ -780,78 +760,37 @@ EOD;
   /**
   * create a page for holding the received messages
   *
+  * @param string $templateName
   */
-  protected function createReceivedMessagesPage() {
-    $templateName = 'simple_contact_form_messages';
+  protected function createReceivedMessagesPage($templateName) {
+    // create repeater field
+    $repeaterField = $this->createRepeater();
 
-    if (!$this->templates->get($templateName) instanceof Template) {
-      // create repeater field
-      $repeaterField = $this->createRepeater();
+    // create fieldgroup
+    $fg = new Fieldgroup();
+    $fg->name = $templateName;
+    $fg->add($this->fields->get('title')); // needed title field
+    $fg->add($repeaterField); // needed title field
+    $fg->save();
 
-      // create fieldgroup
-      $fg = new Fieldgroup();
-      $fg->name = $templateName;
-      $fg->add($this->fields->get('title')); // needed title field
-      $fg->add($repeaterField); // needed title field
-      $fg->save();
+    // create new template
+    $t = new Template();
+    $t->name = $templateName;
+    $t->fieldgroup = $fg; // add the fieldgroup
+    $t->noChildren = 1;
+    $t->noPrependTemplateFile = 1;
+    $t->noAppendTemplateFile = 1;
+    $t->tags = 'scf';
+    $t->save();
 
-      // create new template
-      $t = new Template();
-      $t->name = $templateName;
-      $t->fieldgroup = $fg; // add the fieldgroup
-      $t->noChildren = 1;
-      $t->noPrependTemplateFile = 1;
-      $t->noAppendTemplateFile = 1;
-      $t->tags = 'scf';
-      $t->save();
-
-      // create page
-      $p = new Page();
-      $p->template = $t;
-      $p->parent = $this->pages->get('/');
-      $p->name = $this->pageName;
-      $p->title = $this->pageName;
-      $p->addStatus(Page::statusHidden);
-      $p->save();
-    } else {
-      // Upgrade Module from <= v0.0.9
-      // @todo: add first! on save module config data and outsource
-      if (!is_null($this->fields->get('scf_email')) && is_null($this->fields->get('scf_spamIp')) && is_null($this->fields->get('scf_spamMail'))) {
-        // mark module as autoload
-        $db = wire('database');
-        $table = $db->escapeTable('modules');
-
-        try {
-          $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
-          $query->bindValue(":flags", 3);
-          $query->bindValue(":class", 'SimpleContactForm');
-          $query->execute();
-        } catch(Exception $e) {
-          $this->errors($e->getMessage(), Notice::log);
-        }
-
-        // add fields to mark spam
-        foreach (array('spamIp', 'spamMail') as $name) {
-          preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
-
-          $f = new Field();
-          $f->type = $this->modules->get('FieldtypeCheckbox');
-          $f->name = 'scf_' . $name;
-          $f->label = 'Add ' . $matches[0][0] . ' to spam list';
-          $f->tags = 'scf';
-          $f->columnWidth = '50';
-          $f->save();
-        }
-
-        $repeaterField = $this->fields->get($this->repeaterName);
-
-        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-        foreach (array('spamIp', 'spamMail') as $field) {
-          $repeaterFg->append($this->fields->get('scf_' . $field));
-        }
-        $repeaterFg->save();
-      }
-    }
+    // create page
+    $p = new Page();
+    $p->template = $t;
+    $p->parent = $this->pages->get('/');
+    $p->name = $this->pageName;
+    $p->title = $this->pageName;
+    $p->addStatus(Page::statusHidden);
+    $p->save();
 
     $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
     $tPath = $this->config->paths->templates . $templateName . $ext;
@@ -957,33 +896,45 @@ EOD;
    * @param HookEvent $event
    */
   public function buildTemplatesOnSaveModuleConfigData(HookEvent $event) {
+    $this->checkFilePermissions();
+
     if ($event->arguments[0] === self::$class) {
       $configDataUntilNow = $this->modules->getModuleConfigData(self::$class);
       $configDataUpdated = $event->arguments[1];
 
-      // @todo: saveMessages template: add/remove fields
+      $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+      $tPath = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
 
-      // @todo: success and error messages
-
-      // @todo:
       // check for existing template
-      // if there is none, create it
-      // remove from init? -> outsource and recheck/recall
+      if (!file_exists($tPath)) {
+        // create new template
+        $this->createContactPage();
+      } else {
+        // update existing template - remove fields
+        $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
+        if (!empty($configDataDiffRemove)) {
+          $this->removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffRemove);
+        }
 
-      // @todo:
-      // remove removed fields from fieldgroup
-      // from template remove it manually? or maybe regex <input ... name="$name" .../>
-      $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
-      if (!empty($configDataDiffRemove)) {
-        $this->removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffRemove);
+        // update existing template - add fields
+        $configDataDiffAdd = array_diff($configDataUpdated, $configDataUntilNow);
+        if (!empty($configDataDiffAdd)) {
+          $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
+        }
       }
 
-      // update existing template
-      $configDataDiffAdd = array_diff($configDataUpdated, $configDataUntilNow);
-      if (!empty($configDataDiffAdd)) {
-        $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
-      }
+      // check whether to save the received messages
+      if (!empty($configDataUpdated['saveMessages'])) {
+        $tName = $this->decamelize(self::$class . 'Messages');
 
+        if (!$this->templates->get($tName) instanceof Template) {
+          $this->createReceivedMessagesPage($tName);
+        } else {
+          // upgrade module from <= v0.0.9
+          $this->upgradeModuleLte009Fields();
+        }
+      }
+      // @todo: saveMessages template: add/remove fields
     }
   }
 
@@ -1024,7 +975,6 @@ EOD;
             }
 
             // HTML OUTPUT
-            // remove fields from template
             // remove just label and input, you have to remove additional markup manually
             $split = preg_split('/(<label).*(for=[\'"]).*(' . $name . '[\'"])(>).*(<\/label>)/', $tContent);
             if (count($split) > 1) $tContent = implode('', $split);
@@ -1131,6 +1081,57 @@ EOD;
    */
   public function decamelize($word) {
     return strtolower(preg_replace('/(?!^)[[:upper:]]+/', '_$0', $word));
+  }
+
+  /*
+   * upgrade module from <= v0.0.9
+   * add autoload flag
+   */
+  protected function upgradeModuleLte009Flags() {
+    // mark module as autoload
+    $db = wire('database');
+    $table = $db->escapeTable('modules');
+
+    try {
+      $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
+      $query->bindValue(":flags", 3);
+      $query->bindValue(":class", self::$class);
+      $query->execute();
+    } catch(Exception $e) {
+      $this->errors($e->getMessage(), Notice::log);
+    }
+  }
+
+  /*
+   * upgrade module from <= v0.0.9
+   * add spam fields for IP and Mail
+   */
+  protected function upgradeModuleLte009Fields() {
+    if (!is_null($this->fields->get('scf_email')) 
+      && is_null($this->fields->get('scf_spamIp')) 
+      && is_null($this->fields->get('scf_spamMail'))) {
+
+      // add fields to mark spam
+      foreach (array('spamIp', 'spamMail') as $name) {
+        preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
+
+        $f = new Field();
+        $f->type = $this->modules->get('FieldtypeCheckbox');
+        $f->name = 'scf_' . $name;
+        $f->label = 'Add ' . $matches[0][0] . ' to spam list';
+        $f->tags = 'scf';
+        $f->columnWidth = '50';
+        $f->save();
+      }
+
+      $repeaterField = $this->fields->get($this->repeaterName);
+
+      $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+      foreach (array('spamIp', 'spamMail') as $field) {
+        $repeaterFg->append($this->fields->get('scf_' . $field));
+      }
+      $repeaterFg->save();
+    }
   }
 
   // @todo:
