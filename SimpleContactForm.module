@@ -19,9 +19,14 @@
 class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
   /**
-   * @field string class
+   * string class name
    */
-  protected static $class = 'SimpleContactForm';
+  const CLASS_NAME = 'SimpleContactForm';
+
+  /**
+   * string tag name
+   */
+  const TAG_NAME = 'scf';
 
   /**
    * @field array Default config values
@@ -258,7 +263,7 @@ EOD;
    */
   public function init() {
     // check if module is autoload, if not, change it
-    if (!$this->modules->isAutoload($this->modules->get(self::$class))) {
+    if (!$this->modules->isAutoload($this->modules->get(self::CLASS_NAME))) {
       $this->upgradeModuleLte009Flags();
     }
 
@@ -269,10 +274,10 @@ EOD;
     $this->pages = wire('pages');
     $this->modules = wire('modules');
 
-    if (!empty($this->modules->getInstall(self::$class)->data)) {
+    if (!empty($this->modules->getInstall(self::CLASS_NAME)->data)) {
       // add log file
-      $this->log = new FileLog($this->config->paths->logs . strtolower(self::$class) . '-log.txt');
-      $this->logSpam = new FileLog($this->config->paths->logs . strtolower(self::$class) . '-spam-log.txt');
+      $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
+      $this->logSpam = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-spam-log.txt');
 
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
@@ -303,7 +308,7 @@ EOD;
   * @param HookEvent $event
   */
   public function addSortRepeaterItemsScript(HookEvent $event) {
-    $this->config->scripts->append($this->config->urls->{self::$class} . 'SortRepeaterItems.js');
+    $this->config->scripts->append($this->config->urls->{self::CLASS_NAME} . 'SortRepeaterItems.js');
   }
 
  /**
@@ -332,7 +337,7 @@ EOD;
     }
 
     $contactPage = new Page();
-    $contactPage->set('template', $this->decamelize(self::$class));
+    $contactPage->set('template', $this->decamelize(self::CLASS_NAME));
     return $contactPage->render();
   }
 
@@ -594,7 +599,7 @@ EOD;
   *
   */
   protected function createContactPage() {
-    $tName = $this->decamelize(self::$class);
+    $tName = $this->decamelize(self::CLASS_NAME);
 
     // create a new template for contactPage - database
     if (!$this->templates->get($tName) instanceof Template) {
@@ -611,7 +616,7 @@ EOD;
       $contactTemplate->slashUrls = 1;
       $contactTemplate->noPrependTemplateFile = 1;
       $contactTemplate->noAppendTemplateFile = 1;
-      $contactTemplate->tags = 'scf';
+      $contactTemplate->tags = self::TAG_NAME;
       $contactTemplate->save();
     }
 
@@ -784,7 +789,7 @@ EOD;
     $t->noChildren = 1;
     $t->noPrependTemplateFile = 1;
     $t->noAppendTemplateFile = 1;
-    $t->tags = 'scf';
+    $t->tags = self::TAG_NAME;
     $t->save();
 
     // create page
@@ -834,7 +839,7 @@ EOD;
       $f->type = $this->modules->get('FieldtypeText');
       $f->name = 'scf_' . $name;
       $f->label = 'SCF - ' . ucfirst($name);
-      $f->tags = 'scf';
+      $f->tags = self::TAG_NAME;
       $f->columnWidth = '25';
       $f->save();
     }
@@ -846,8 +851,8 @@ EOD;
       $f->type = $this->modules->get('FieldtypeCheckbox');
       $f->name = 'scf_' . $name;
       $f->label = 'Add ' . $matches[0][0] . ' to spam list';
-      $f->tags = 'scf';
-      $f->columnWidth = '50';
+      $f->tags = self::TAG_NAME;
+      $f->columnWidth = '100';
       $f->save();
     }
 
@@ -860,7 +865,7 @@ EOD;
     $repeaterField->type = $this->modules->get("FieldtypeRepeater");
     $repeaterField->name = $this->repeaterName;
     $repeaterField->label = 'SCF - ' . $this->repeaterName;
-    $repeaterField->tags = 'scf';
+    $repeaterField->tags = self::TAG_NAME;
     $repeaterField->repeaterReadyItems = 3;
 
     // create fieldgroup
@@ -909,16 +914,16 @@ EOD;
   public function buildTemplatesOnSaveModuleConfigData(HookEvent $event) {
     $this->checkFilePermissions();
 
-    if ($event->arguments[0] === self::$class) {
-      $configDataUntilNow = $this->modules->getModuleConfigData(self::$class);
+    if ($event->arguments[0] === self::CLASS_NAME) {
+      $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
       $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
+      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
 
       // check whether to save the received messages
       if (!empty($configDataUpdated['saveMessages'])) {
-        $tName = $this->decamelize(self::$class . 'Messages');
+        $tName = $this->decamelize(self::CLASS_NAME . 'Messages');
 
         if (!$this->templates->get($tName) instanceof Template) {
           $this->createReceivedMessagesPage($tName);
@@ -947,7 +952,6 @@ EOD;
           $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
         }
       }
-      // @todo: saveMessages template: add/remove fields
     }
   }
 
@@ -960,48 +964,63 @@ EOD;
    */
   protected function removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
     // check messages - success and error
-    foreach ($configDataDiff as $key => $value) {
-      if (preg_match('/allFields/', $key)) {
-        // check for new fields
-        $fieldsUpdated = explode(',', preg_replace('/\s+/', '', $configDataUpdated['allFields']));
-        $fieldsRemoved = array();
-        foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
-          if (!array_key_exists($field, array_flip($fieldsUpdated))) {
-            $fieldsRemoved[] = $field;
-          }
+    if (array_key_exists('allFields', $configDataDiff)) {
+      // check for new fields
+      $fieldsUpdated = explode(',', preg_replace('/\s+/', '', $configDataUpdated['allFields']));
+      $fieldsRemoved = array();
+      foreach (explode(',', preg_replace('/\s+/', '', $configDataDiff['allFields'])) as $field) {
+        if (!array_key_exists($field, array_flip($fieldsUpdated))) {
+          $fieldsRemoved[] = $field;
+        }
+      }
+
+      if (!empty($fieldsRemoved)) {
+        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+        $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+        $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
+        $tContent = file_get_contents($t);
+
+        // append new fields and header in save messages template
+        // first check if save message setting is on
+        if (!empty($configDataUpdated['saveMessages'])) {
+          $tMessages = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME . 'Messages') . $fileExtension;
+          $tMContent = file_get_contents($tMessages);
         }
 
-        if (!empty($fieldsRemoved)) {
-          $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-          $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
-          $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
-          $tContent = file_get_contents($t);
-
-          // yeah, there are some fields to remove
-          foreach ($fieldsRemoved as $key => $name) {
-            // REAL FIELD INCLUDING TABLE
-            // check for existing table
-            if (!is_null($this->fields->get('scf_' . $name))) {
-              if (!is_null($repeaterFg->getField('scf_' . $name))) {
-                $repeaterFg->remove($this->fields->get('scf_' . $name));
-              }
+        // yeah, there are some fields to remove
+        foreach ($fieldsRemoved as $key => $name) {
+          // REAL FIELD INCLUDING TABLE
+          // check for existing table
+          if (!is_null($this->fields->get('scf_' . $name))) {
+            if (!is_null($repeaterFg->getField('scf_' . $name))) {
+              $repeaterFg->remove($this->fields->get('scf_' . $name));
             }
-
-            // HTML OUTPUT
-            // remove just label and input, you have to remove additional markup manually
-            $split = preg_split('/(<label).*(for=[\'"]).*(' . $name . '[\'"])(>).*(<\/label>)/', $tContent);
-            if (count($split) > 1) $tContent = implode('', $split);
-            $split = preg_split('/(<input).*(name=[\'"]' . $name . '[\'"]).*(\/>)/', $tContent);
-            $tContent = implode('', $split);
           }
 
-          $repeaterFg->save();
+          // HTML OUTPUT
+          // remove just label and input, you have to remove additional markup manually
+          $split = preg_split('/(<label).*(for=[\'"]).*(' . $name . '[\'"])(>).*(<\/label>)/', $tContent);
+          if (count($split) > 1) $tContent = implode('', $split);
+          $split = preg_split('/(<input).*(name=[\'"]' . $name . '[\'"]).*(\/>)/', $tContent);
+          $tContent = implode('', $split);
 
-          $template = fopen($t, 'w');
-          chmod($t, 0766);
-          fwrite($template, html_entity_decode($tContent));
-          fclose($template);
+          if (!empty($configDataUpdated['saveMessages'])) {
+            // remove table header and content for specific field
+            $tMContent = preg_replace('/(<)(th|td)(>).*(scf_' . $name . ').*(<\/)(th|td)(>)/', '', $tMContent);
+          }
         }
+
+        $repeaterFg->save();
+
+        $template = fopen($t, 'w');
+        chmod($t, 0766);
+        fwrite($template, html_entity_decode($tContent));
+        fclose($template);
+
+        $templateM = fopen($tMessages, 'w');
+        chmod($tMessages, 0766);
+        fwrite($templateM, html_entity_decode($tMContent));
+        fclose($templateM);
       }
     }
   }
@@ -1015,73 +1034,95 @@ EOD;
    */
   protected function addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
     // check messages - success and error
-    foreach ($configDataDiff as $key => $value) {
-      if (preg_match('/allFields/', $key)) {
-        // check for new fields
-        $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
-        $fieldsNew = array();
-        foreach (explode(',', preg_replace('/\s+/', '', $value)) as $field) {
-          if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
-            $fieldsNew[] = $field;
-          }
+    if (array_key_exists('allFields', $configDataDiff)) {
+      // check for new fields
+      $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
+      $fieldsNew = array();
+      foreach (explode(',', preg_replace('/\s+/', '', $configDataDiff['allFields'])) as $field) {
+        if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
+          $fieldsNew[] = $field;
         }
+      }
 
-        if (!empty($fieldsNew)) {
-          $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-          $inputfields = new InputfieldWrapper();
+      if (!empty($fieldsNew)) {
+        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
+        $inputfields = new InputfieldWrapper();
+        $saveMessages = array('head' => array(), 'content' => array());
 
-          // yeah, there are some new fields to add
-          foreach ($fieldsNew as $key => $name) {
-            // REAL FIELD INCLUDING TABLE
-            // check for existing table
-            if (is_null($this->fields->get('scf_' . $name))) {
-              $f = new Field();
-              $f->type = $this->modules->get('FieldtypeText');
-              $f->name = 'scf_' . $name;
-              $f->label = 'SCF - ' . ucfirst($name);
-              $f->tags = 'scf';
-              $f->columnWidth = '25';
-              $f->save();
+        // yeah, there are some new fields to add
+        foreach ($fieldsNew as $key => $name) {
+          // REAL FIELD INCLUDING TABLE
+          // check for existing table
+          if (is_null($this->fields->get('scf_' . $name))) {
+            $f = new Field();
+            $f->type = $this->modules->get('FieldtypeText');
+            $f->name = 'scf_' . $name;
+            $f->label = 'SCF - ' . ucfirst($name);
+            $f->tags = self::TAG_NAME;
+            $f->columnWidth = '25';
+            $f->save();
 
-              if (is_null($repeaterFg->getField('scf_' . $name))) {
-                if (is_null($this->fields->get('scf_spamIp'))) {
-                  $repeaterFg->append($f);
-                } else {
-                  $repeaterFg->insertBefore($f, $this->fields->get('scf_spamIp'));
-                }
+            if (is_null($repeaterFg->getField('scf_' . $name))) {
+              if (is_null($this->fields->get('scf_spamIp'))) {
+                $repeaterFg->append($f);
+              } else {
+                $repeaterFg->insertBefore($f, $this->fields->get('scf_spamIp'));
               }
             }
-
-            // HTML OUTPUT
-            $singleField = $this->modules->get('InputfieldText');
-            $singleField->name = $name;
-            $singleField->placeholder = $name;
-
-            if ((int)$configDataUpdated['useTwig'] === 1) {
-              $singleField->initValue = '{{input.' . $name . '}}';
-              $fileExtension = '.twig';
-            } else {
-              $singleField->initValue = '<?= $input->' . $name . '; ?>';
-              $fileExtension = '.php';
-            }
-
-            $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
-            if (in_array($name, $requiredFields)) $singleField->required = true;
-            $inputfields->add($singleField);
           }
 
-          $repeaterFg->save();
+          // HTML OUTPUT
+          $singleField = $this->modules->get('InputfieldText');
+          $singleField->name = $name;
+          $singleField->placeholder = $name;
 
-          // prepend new fields in template
-          $t = $this->config->paths->templates . $this->decamelize(self::$class) . $fileExtension;
-          $tContent = file_get_contents($t);
-          $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
-          $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
+          if ((int)$configDataUpdated['useTwig'] === 1) {
+            $singleField->initValue = '{{input.' . $name . '}}';
+            $fileExtension = '.twig';
+            $saveMessages['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
+            $saveMessages['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
+          } else {
+            $singleField->initValue = '<?= $input->' . $name . '; ?>';
+            $fileExtension = '.php';
+            $saveMessages['head'][] = '<th><?= $fields->get("scf_' . $name . '")->label; ?></th>';
+            $saveMessages['content'][] = '<td><?= $message->scf_' . $name . '; ?></td>';
+          }
 
-          $template = fopen($t, 'w');
-          chmod($t, 0766);
-          fwrite($template, html_entity_decode($newContent));
-          fclose($template);
+          $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
+          if (in_array($name, $requiredFields)) $singleField->required = true;
+          $inputfields->add($singleField);
+        }
+
+        $repeaterFg->save();
+
+        // prepend new fields in contact template
+        $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
+        $tContent = file_get_contents($t);
+        $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
+        $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
+
+        $template = fopen($t, 'w');
+        chmod($t, 0766);
+        fwrite($template, html_entity_decode($newContent));
+        fclose($template);
+
+        // append new fields and header in save messages template
+        // first check if save message setting is on
+        if (!empty($configDataUpdated['saveMessages'])) {
+          $tMessages = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME . 'Messages') . $fileExtension;
+          $tMContent = file_get_contents($tMessages);
+          $splitM = preg_split('/(<\/tr>)/', $tMContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
+
+          if (!empty($splitM)) {
+            // insert first content to maintain (int)start
+            $newMContent = substr_replace($tMContent, implode("\n", $saveMessages['content']) . "\n", $splitM[2][1] - 5, 0);
+            $newMContent = substr_replace($newMContent, implode("\n", $saveMessages['head']) . "\n", $splitM[1][1] - 5, 0);
+          }
+
+          $templateM = fopen($tMessages, 'w');
+          chmod($tMessages, 0766);
+          fwrite($templateM, html_entity_decode($newMContent));
+          fclose($templateM);
         }
       }
     }
@@ -1108,7 +1149,7 @@ EOD;
     try {
       $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
       $query->bindValue(":flags", 3);
-      $query->bindValue(":class", self::$class);
+      $query->bindValue(":class", self::CLASS_NAME);
       $query->execute();
     } catch(Exception $e) {
       $this->errors($e->getMessage(), Notice::log);
@@ -1132,8 +1173,8 @@ EOD;
         $f->type = $this->modules->get('FieldtypeCheckbox');
         $f->name = 'scf_' . $name;
         $f->label = 'Add ' . $matches[0][0] . ' to spam list';
-        $f->tags = 'scf';
-        $f->columnWidth = '50';
+        $f->tags = self::TAG_NAME;
+        $f->columnWidth = '100';
         $f->save();
       }
 
@@ -1151,15 +1192,53 @@ EOD;
   //   add uninstall function
   //   cleanup all stuff but not per default
   //   provide checkbox and some hints
+    /**
+     * called only when the module is uninstalled
+     * this should return the site to the same state it was in before the module was installed
+     *
+     * @access public
+     *
+     */
+    public function ___uninstall() {
+      // delete pages
+      $pages = array(
+        $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME)),
+        $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'))
+      );
+
+      foreach ($pages as $page) {
+        if ($page->id) {
+          // if we found the page, let the user know and delete it
+          $this->message("Deleted Page: {$page->path}");
+          $page->delete();
+        }
+      }
+
+      // delete fieldgroups
+      // delete fields
+
+      // delete templates
+      $templates = $this->templates->find('tags=' . self::TAG_NAME);
+      foreach ($templates as $template) {
+        if ($template->id) {
+          // if we found the page, let the user know and delete it
+          $this->message("Deleted Template: {$template->name}");
+          unlink($template->filename);
+          $this->templates->delete($template);
+
+    // $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
+    // $tPath = $this->config->paths->templates . $tName . $ext;
+        }
+      }
+
+  }
 
   /**
-  *
   * install routine
   */
   public function ___install() {
-    // check file permissions
     $this->checkFilePermissions();
-
+    // @todo: do not generate templates at this point!
     wire('modules')->saveModuleConfigData($this, self::$defaults); 
   }
 
