@@ -87,9 +87,10 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 
     $settings = array(
       'general' => array(
-        'type' => 'InputfieldMarkup',
-        'value' => '<h2>&#8595; General</h2>',
-        'columnWidth' => 100
+        'type' => 'InputfieldFieldset',
+        'label' => 'General',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedNo
       ),
       'saveMessages' => array(
         'type' => 'InputfieldCheckbox',
@@ -104,9 +105,10 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'columnWidth' => 50
       ),
       'email' => array(
-        'type' => 'InputfieldMarkup',
-        'value' => '<h2>&#8595; EMail</h2>',
-        'columnWidth' => 100
+        'type' => 'InputfieldFieldset',
+        'label' => 'Email',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedNo
       ),
       'fullName' => array(
         'type' => 'InputfieldText',
@@ -134,27 +136,11 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'size' => 45,
         'columnWidth' => 50
       ),
-      'messages' => array(
-        'type' => 'InputfieldMarkup',
-        'value' => '<h2>&#8595; Messages</h2>',
-        'columnWidth' => 100
-      ),
-      'successMessage' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Success message',
-        'rows' => 2,
-        'columnWidth' => 50
-      ),
-      'errorMessage' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Error message',
-        'rows' => 2,
-        'columnWidth' => 50
-      ),
       'fields' => array(
-        'type' => 'InputfieldMarkup',
-        'value' => '<h2>&#8595; Fields</h2>',
-        'columnWidth' => 100
+        'type' => 'InputfieldFieldset',
+        'label' => 'Fields',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedNo
       ),
       'allFields' => array(
         'type' => 'InputfieldTextarea',
@@ -174,10 +160,29 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'size' => 45,
         'columnWidth' => 34
       ),
+      'messages' => array(
+        'type' => 'InputfieldFieldset',
+        'label' => 'Messages',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedYes
+      ),
+      'successMessage' => array(
+        'type' => 'InputfieldTextarea',
+        'description' => 'Success message',
+        'rows' => 2,
+        'columnWidth' => 50
+      ),
+      'errorMessage' => array(
+        'type' => 'InputfieldTextarea',
+        'description' => 'Error message',
+        'rows' => 2,
+        'columnWidth' => 50
+      ),
       'spam' => array(
-        'type' => 'InputfieldMarkup',
-        'value' => '<h2>&#8595; Spam</h2>',
-        'columnWidth' => 100
+        'type' => 'InputfieldFieldset',
+        'label' => 'Spam',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedYes
       ),
       'antiSpamTimeMin' => array(
         'type' => 'InputfieldText',
@@ -214,13 +219,14 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     $help = $modules->get('InputfieldMarkup');
     $helpContent = <<<EOD
 <h2>Instructions:</h2>
-<ol><li>Create a template for your contact form page (if you don't already have one).</li>
-<li>Add the fields you want to use to this template as you are used to.</li>
-<li>In the template add just one line to include the form:
+<ol>
+<li>Complete the form below and submit it.</li>
+<li>Create a template for your contact form page (if you don't already have one).</li>
+<li>In the template add the following line to include the form:
 <pre>{{modules.get('SimpleContactForm').render()}} // twig</pre>
 <pre>\$modules->get('SimpleContactForm')->render(); //php</pre></li>
-<li>If you want to send the form via ajax, include jquery.simplecontactform.js.</li></ol>
-<p><a href="https://processwire.com/talk/topic/8254-module-simple-contact-form-optional-twig-support/">Read more</a></p>
+</ol>
+<p><a  target="_blank" href="https://github.com/justonestep/processwire-simplecontactform">Read more</a></p>
 EOD;
     $help->value = $helpContent;
     $fields->append($help);
@@ -230,7 +236,7 @@ EOD;
       $field = $modules->get($s['type']);
       $field->name = $name;
 
-      if ($s['type'] != 'InputfieldMarkup') {
+      if ($s['type'] != 'InputfieldFieldset') {
         $field->label = $name;
         $field->value = $data[$name];
       }
@@ -241,7 +247,12 @@ EOD;
         }
       }
 
-      $fields->append($field);
+      if ($s['type'] === 'InputfieldFieldset') {
+        $fieldset = $field;
+        $fields->append($field);
+      } else {
+        $fieldset->add($field);
+      }
     }
 
     return $fields;
@@ -886,6 +897,7 @@ EOD;
     $repeaterT->noGlobal = 1;
     $repeaterT->slashUrls = 1;
     $repeaterT->flags = 8;
+    $repeaterT->tags = self::TAG_NAME;
     $repeaterT->fieldgroup = $repeaterFg;
 
     $repeaterT->save();
@@ -907,7 +919,7 @@ EOD;
   }
 
   /**
-   * Hook 
+   * Hook
    *
    * @param HookEvent $event
    */
@@ -1161,8 +1173,8 @@ EOD;
    * add spam fields for IP and Mail
    */
   protected function upgradeModuleLte009Fields() {
-    if (!is_null($this->fields->get('scf_email')) 
-      && is_null($this->fields->get('scf_spamIp')) 
+    if (!is_null($this->fields->get('scf_email'))
+      && is_null($this->fields->get('scf_spamIp'))
       && is_null($this->fields->get('scf_spamMail'))) {
 
       // add fields to mark spam
@@ -1189,9 +1201,13 @@ EOD;
   }
 
   // @todo:
-  //   add uninstall function
   //   cleanup all stuff but not per default
   //   provide checkbox and some hints
+  //   modules/Process/ProcessModule/ProcessModule.module :1178
+  //   HOOK: /wire/modules/Process/ProcessModule/ProcessModule.module :1071 ___executeEdit() AFTER!
+  //   - set uninstall to collapsedNo
+  //   - remove from form and add to a collapsed fieldset using the icon and label
+  //   - prepend checkbox whether to cleanup database and files
     /**
      * called only when the module is uninstalled
      * this should return the site to the same state it was in before the module was installed
@@ -1207,30 +1223,30 @@ EOD;
       );
 
       foreach ($pages as $page) {
-        if ($page->id) {
-          // if we found the page, let the user know and delete it
-          $this->message("Deleted Page: {$page->path}");
-          $page->delete();
-        }
+        if ($page->id) $page->delete();
       }
 
-      // delete fieldgroups
-      // delete fields
-
       // delete templates
-      $templates = $this->templates->find('tags=' . self::TAG_NAME);
+      $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
       foreach ($templates as $template) {
         if ($template->id) {
           // if we found the page, let the user know and delete it
           $this->message("Deleted Template: {$template->name}");
-          unlink($template->filename);
+          if (file_exists($template->filename)) unlink($template->filename);
+          $template->flags = Template::flagSystemOverride;
+          $template->flags = 0; // all flags now removed, can be deleted
           $this->templates->delete($template);
 
-    // $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
-    // $tPath = $this->config->paths->templates . $tName . $ext;
+          // delete fieldgroups
+          $fg = $this->fieldgroups->get($template->name);
+          if ($fg->id) $this->fieldgroups->delete($fg);
         }
       }
 
+      // delete fields
+      foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
+        if ($field->id) $this->fields->delete($field);
+      }
   }
 
   /**
@@ -1238,8 +1254,7 @@ EOD;
   */
   public function ___install() {
     $this->checkFilePermissions();
-    // @todo: do not generate templates at this point!
-    wire('modules')->saveModuleConfigData($this, self::$defaults); 
+    wire('modules')->saveModuleConfigData($this, self::$defaults);
   }
 
 }
