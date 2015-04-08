@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.1.0
+* @version 0.1.1
 * @copyright Copyright (c) 2014
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -47,7 +47,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
     'antiSpamCountAdditionalInputs' => '5',
-    'useTwig' => 0
+    'useTwig' => 0,
+    'cleanup' => 0
   );
 
   /**
@@ -61,7 +62,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
-      'version' => 10,
+      'version' => 11,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -214,6 +215,20 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'size' => 45,
         'columnWidth' => 33
       ),
+      'uninstall' => array(
+        'type' => 'InputfieldFieldset',
+        'label' => 'Uninstall',
+        'columnWidth' => 100,
+        'collapsed' => Inputfield::collapsedYes,
+        'icon' => 'times-circle'
+      ),
+      'cleanup' => array(
+        'type' => 'InputfieldCheckbox',
+        'description' => 'If you check the following box all data containing files as well as database content will be permanently erased with no chance for recovery. It\'s recommended to make a backup before uninstalling this module.',
+        'checked' => empty($data['cleanup']) ? '' : 'checked',
+        'columnWidth' => 100,
+        'icon' => 'trash'
+      ),
     );
 
     $help = $modules->get('InputfieldMarkup');
@@ -223,7 +238,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
 <li>Complete the form below and submit it.</li>
 <li>Create a template for your contact form page (if you don't already have one).</li>
 <li>In the template add the following line to include the form:
-<pre>{{modules.get('SimpleContactForm').render()}} // twig</pre>
+<pre>{{modules.get('SimpleContactForm').render()}} //twig</pre>
 <pre>\$modules->get('SimpleContactForm')->render(); //php</pre></li>
 </ol>
 <p><a  target="_blank" href="https://github.com/justonestep/processwire-simplecontactform">Read more</a></p>
@@ -311,20 +326,38 @@ EOD;
   public function ready() {
     $this->addHookAfter('ProcessPageEdit::execute', $this, 'addSortRepeaterItemsScript');
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'buildTemplatesOnSaveModuleConfigData');
+    $this->addHookAfter('ProcessModule::executeEdit', $this, 'moveUninstall');
   }
 
- /**
-  * add sort repeater items script
-  *
-  * @param HookEvent $event
-  */
+  /**
+   * add sort repeater items script
+   *
+   * @param HookEvent $event
+   */
   public function addSortRepeaterItemsScript(HookEvent $event) {
     $this->config->scripts->append($this->config->urls->{self::CLASS_NAME} . 'SortRepeaterItems.js');
   }
 
- /**
-  * check file permissions
-  */
+  /**
+   * move uninstall checkbox into fieldset
+   * and remove state collapsed
+   *
+   * @param HookEvent $event
+   */
+  public function moveUninstall(HookEvent $event) {
+    $return = $event->return;
+    if (preg_match('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', $return, $matches, PREG_OFFSET_CAPTURE)) {
+      $move = preg_replace('/collapsed\d\sInputfieldStateCollapsed/', '', $matches[0][0]);
+      $return = preg_replace('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', '', $return);
+      $offset = $matches[0][1] - strlen($return);
+      $pos = strrpos($return, '</ul>', $offset);
+      $event->return = substr_replace($return, $move, $pos, 0);
+    }
+  }
+
+  /**
+   * check file permissions
+   */
   private function checkFilePermissions() {
     $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
@@ -1200,14 +1233,6 @@ EOD;
     }
   }
 
-  // @todo:
-  //   cleanup all stuff but not per default
-  //   provide checkbox and some hints
-  //   modules/Process/ProcessModule/ProcessModule.module :1178
-  //   HOOK: /wire/modules/Process/ProcessModule/ProcessModule.module :1071 ___executeEdit() AFTER!
-  //   - set uninstall to collapsedNo
-  //   - remove from form and add to a collapsed fieldset using the icon and label
-  //   - prepend checkbox whether to cleanup database and files
     /**
      * called only when the module is uninstalled
      * this should return the site to the same state it was in before the module was installed
@@ -1216,36 +1241,39 @@ EOD;
      *
      */
     public function ___uninstall() {
-      // delete pages
-      $pages = array(
-        $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME)),
-        $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'))
-      );
+      // first check whether to clean up everything
+      if (boolval($this->input->post->cleanup)) {
+        // delete pages
+        $pages = array(
+          $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME)),
+          $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'))
+        );
 
-      foreach ($pages as $page) {
-        if ($page->id) $page->delete();
-      }
-
-      // delete templates
-      $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
-      foreach ($templates as $template) {
-        if ($template->id) {
-          // if we found the page, let the user know and delete it
-          $this->message("Deleted Template: {$template->name}");
-          if (file_exists($template->filename)) unlink($template->filename);
-          $template->flags = Template::flagSystemOverride;
-          $template->flags = 0; // all flags now removed, can be deleted
-          $this->templates->delete($template);
-
-          // delete fieldgroups
-          $fg = $this->fieldgroups->get($template->name);
-          if ($fg->id) $this->fieldgroups->delete($fg);
+        foreach ($pages as $page) {
+          if ($page->id) $page->delete();
         }
-      }
 
-      // delete fields
-      foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
-        if ($field->id) $this->fields->delete($field);
+        // delete templates
+        $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
+        foreach ($templates as $template) {
+          if ($template->id) {
+            // if we found the page, let the user know and delete it
+            $this->message("Deleted Template: {$template->name}");
+            if (file_exists($template->filename)) unlink($template->filename);
+            $template->flags = Template::flagSystemOverride;
+            $template->flags = 0; // all flags now removed, can be deleted
+            $this->templates->delete($template);
+
+            // delete fieldgroups
+            $fg = $this->fieldgroups->get($template->name);
+            if ($fg->id) $this->fieldgroups->delete($fg);
+          }
+        }
+
+        // delete fields
+        foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
+          if ($field->id) $this->fields->delete($field);
+        }
       }
   }
 
