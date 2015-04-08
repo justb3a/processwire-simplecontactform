@@ -641,9 +641,8 @@ EOD;
   /**
   * create a page for holding the form fields
   *
-  * @param string $ext
   */
-  protected function createContactPage($ext) {
+  protected function createContactPage() {
     $tName = $this->decamelize(self::CLASS_NAME);
 
     // create a new template for contactPage - database
@@ -852,7 +851,7 @@ EOD;
    * @param string $templateName
    * @param string $ext
    */
-  private function createReceivedMessagesTemplate($templateName, $ext) {
+  private function createReceivedMessagesTemplate($templateName) {
     $tPath = $this->config->paths->templates . $templateName . $ext;
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
@@ -963,8 +962,8 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
-      $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
+      $this->useTwig =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $this->useTwig;
 
       // check whether to save the received messages
       if (!empty($configDataUpdated['saveMessages'])) {
@@ -977,13 +976,13 @@ EOD;
           $this->upgradeModuleLte009Fields();
         }
 
-        $this->createReceivedMessagesTemplate($tName, $fileExtension);
+        $this->createReceivedMessagesTemplate($tName);
       }
 
       // check for existing template
       if (!file_exists($tPath)) {
         // create new template
-        $this->createContactPage($fileExtension);
+        $this->createContactPage();
       } else {
         // update existing template - remove fields
         $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
