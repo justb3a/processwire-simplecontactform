@@ -641,8 +641,9 @@ EOD;
   /**
   * create a page for holding the form fields
   *
+  * @param string $ext
   */
-  protected function createContactPage() {
+  protected function createContactPage($ext) {
     $tName = $this->decamelize(self::CLASS_NAME);
 
     // create a new template for contactPage - database
@@ -664,7 +665,6 @@ EOD;
       $contactTemplate->save();
     }
 
-    $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
     $tPath = $this->config->paths->templates . $tName . $ext;
     if (!file_exists($tPath)) {
       // add form
@@ -850,9 +850,9 @@ EOD;
    * create a page for holding the received messages
    *
    * @param string $templateName
+   * @param string $ext
    */
-  private function createReceivedMessagesTemplate($templateName) {
-    $ext = ((int)$this->useTwig === 1) ? '.twig' : '.php';
+  private function createReceivedMessagesTemplate($templateName, $ext) {
     $tPath = $this->config->paths->templates . $templateName . $ext;
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
@@ -977,13 +977,13 @@ EOD;
           $this->upgradeModuleLte009Fields();
         }
 
-        $this->createReceivedMessagesTemplate($tName);
+        $this->createReceivedMessagesTemplate($tName, $fileExtension);
       }
 
       // check for existing template
       if (!file_exists($tPath)) {
         // create new template
-        $this->createContactPage();
+        $this->createContactPage($fileExtension);
       } else {
         // update existing template - remove fields
         $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
