@@ -47,7 +47,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
     'antiSpamCountAdditionalInputs' => '5',
-    'useTwig' => 0,
+    'useTwig' => false,
     'cleanup' => 0
   );
 
@@ -311,6 +311,7 @@ EOD;
       $this->allFields = explode(',', $this->allFields);
       $this->pageName = 'scf-messages';
       $this->repeaterName = 'repeater_scfmessages';
+      $this->useTwig = boolval($this->useTwig);
     }
   }
 
@@ -593,7 +594,7 @@ EOD;
       $singleField->name = $inputfield;
       $singleField->placeholder = $inputfield;
 
-      if ((int)$this->useTwig === 1) {
+      if ($this->useTwig) {
         $singleField->initValue = '{{input.' . $inputfield . '}}';
       } else {
         $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
@@ -609,7 +610,7 @@ EOD;
     $honeyField->initValue = '';
     $form->add($honeyField);
 
-    $scfDate = ((int)$this->useTwig === 1) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
+    $scfDate = ($this->useTwig) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
     foreach (array('submitted' => '1', 'scf-date' => $scfDate) as $name => $val) {
       // add hidden field to track wheater the form was submitted and to save current timestamp
       $hiddenField = $this->modules->get('InputfieldHidden');
@@ -626,8 +627,8 @@ EOD;
 
     // render form and substitute CSRF Token
     $out = $form->render();
-    $tokenValue = (int)$this->useTwig === 1 ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
-    $tokenName = (int)$this->useTwig === 1 ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
+    $tokenValue = $this->useTwig ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
+    $tokenName = $this->useTwig ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
     // get token name and count string length after TOKEN
     // look behind does not allow varianble length
     $token = preg_match('/(?<=TOKEN)[\dX]*/', $out, $matches, PREG_OFFSET_CAPTURE);
@@ -664,7 +665,8 @@ EOD;
       $contactTemplate->save();
     }
 
-    $tPath = $this->config->paths->templates . $tName . $this->useTwig;
+    $ext = $this->useTwig ? '.twig' : '.php';
+    $tPath = $this->config->paths->templates . $tName . $ext;
     if (!file_exists($tPath)) {
       // add form
       $form = $this->buildForm();
@@ -687,7 +689,7 @@ EOD;
 
   private function getFormTemplateContent($form) {
     // combine template parts
-    if ((int)$this->useTwig === 1) {
+    if ($this->useTwig) {
       $content = array(
         '<div class="">',
         '{% if input.success %}',
@@ -727,7 +729,7 @@ EOD;
     );
 
     foreach($this->allFieldsExtended as $inputfield) {
-      if ((int)$this->useTwig === 1) {
+      if ($this->useTwig) {
         $table['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
 
         if ($inputfield === $this->emailField) {
@@ -756,7 +758,7 @@ EOD;
 
   private function getMessagesTemplateContent($table, $templateName, $repeaterName) {
     // combine template parts
-    if ((int)$this->useTwig === 1) {
+    if ($this->useTwig) {
       $content = array(
         '{% if user.hasRole("superuser") %}',
         '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
@@ -851,7 +853,8 @@ EOD;
    * @param string $templateName
    */
   private function createReceivedMessagesTemplate($templateName) {
-    $tPath = $this->config->paths->templates . $templateName . $this->useTwig;
+    $ext = $this->useTwig ? '.twig' : '.php';
+    $tPath = $this->config->paths->templates . $templateName . $ext;
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
       $content = $this->getMessagesTemplateContent($table, $templateName, $this->repeaterName);
@@ -961,8 +964,9 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
-      $this->useTwig =  (boolval($configDataUpdated['useTwig'])) ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $this->useTwig;
+      $this->useTwig = boolval($configDataUpdated['useTwig']);
+      $ext = $this->useTwig ? '.twig' : '.php';
+      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $ext;
 
       // check whether to save the received messages
       if (!empty($configDataUpdated['saveMessages'])) {
@@ -1019,7 +1023,7 @@ EOD;
 
       if (!empty($fieldsRemoved)) {
         $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-        $fileExtension =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+        $fileExtension =  ($configDataUpdated['useTwig']) ? '.twig' : '.php';
         $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
         $tContent = file_get_contents($t);
 
@@ -1119,7 +1123,7 @@ EOD;
           $singleField->name = $name;
           $singleField->placeholder = $name;
 
-          if ((int)$configDataUpdated['useTwig'] === 1) {
+          if ($configDataUpdated['useTwig']) {
             $singleField->initValue = '{{input.' . $name . '}}';
             $fileExtension = '.twig';
             $saveMessages['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
@@ -1242,22 +1246,22 @@ EOD;
       // first check whether to clean up everything
       if (boolval($this->input->post->cleanup)) {
         // delete pages
-        $pages = array(
-          $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME)),
-          $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'))
-        );
-
-        foreach ($pages as $page) {
-          if ($page->id) $page->delete();
-        }
+        $page = $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'));
+        if ($page->id) $page->delete();
 
         // delete templates
         $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
         foreach ($templates as $template) {
           if ($template->id) {
-            // if we found the page, let the user know and delete it
-            $this->message("Deleted Template: {$template->name}");
+            if ($this->config->templateExtension === 'php') {
+              $fileWithOtherExt = preg_replace('/php$/', 'twig', $template->filename);
+            } else {
+              $fileWithOtherExt = preg_replace('/twig$/', 'php', $template->filename);
+            }
+
             if (file_exists($template->filename)) unlink($template->filename);
+            if (file_exists($fileWithOtherExt)) unlink($fileWithOtherExt);
+
             $template->flags = Template::flagSystemOverride;
             $template->flags = 0; // all flags now removed, can be deleted
             $this->templates->delete($template);
