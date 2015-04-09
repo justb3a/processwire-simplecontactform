@@ -116,14 +116,16 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'description' => 'Full name of the recipient',
         'size' => 45,
         'placeholder' => 'firstname lastname',
-        'columnWidth' => 50
+        'columnWidth' => 50,
+        'required' => true
       ),
       'emailTo' => array(
         'type' => 'InputfieldText',
         'description' => 'E-mail address of the recipient',
         'size' => 45,
         'placeholder' => 'xxx@xxx.xx',
-        'columnWidth' => 50
+        'columnWidth' => 50,
+        'required' => true
       ),
       'emailSubject' => array(
         'type' => 'InputfieldText',
