@@ -5,10 +5,8 @@
 - [➻ Usage](usage.md)
 - [Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
-- [Clean Up](cleanup.md)
 
-
-# SimpleContactForm for ProcessWire: Usage
+# Usage
 
 1. Create a template for your contact form page (if you don't already have one).
 2. Add the fields you want to use to this template as you are used to.
@@ -37,7 +35,23 @@
 	{% endif %}
 	```
 	
-**Note:** You have to include the module in your own template file first. After that, reload a frontend page using this template. After that, the additional templates are available.
+**Note:** You have to include the module in your own template file.
+
+**If the form is submitted successfully**
+
+ * a success message is shown 
+ * an email was sent
+ * a log entry was created
+ * if save messages setting is turned on the message got saved
+
+ 
+**If an error occurs**
+
+ * an error message is shown
+ * **or:** 
+  * the message was marked as spam
+  * redirect to root page
+  * a log entry was created   
 	
 ## New Template "simple_contact_form"
 
@@ -54,7 +68,7 @@ just make sure to maintain the names of the fields.
 ## saveMessages enabled? 
 
 * new page **scf-messages** (your-url.xx/scf-messages)
-* new template **simple_contact_form**
+* new template **simple_contact_form_messages**
 
 tl;dr: If `saveMessages` is enabled, a new page `scf-messages` will be created.
 Also a new repeater field containing all set up fields is added.
@@ -66,3 +80,19 @@ Otherwise the user will be redirected to the root page.
 Failing that the user will be redirected to the root page.
 You can modify that templates for your own needs.
 
+![Save Messages](https://github.com/justonestep/processwire-simplecontactform/blob/master/screens/received-messages.png)
+
+## add and remove fields
+
+**(A) add fields**
+
+* fields get added to database and template
+* because I do not know your html structure the fields will be placed in a separate list at the beginning of your template
+* make sure to adapt your html structure
+
+**(B) remove fields**
+
+* fields are not removed from database
+* fields are removed from templates
+* again I do not know your html structure so only the `label` and `input` entrys are removed
+* maybe there will be an empty list entry, you have to remove it manually

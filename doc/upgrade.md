@@ -5,8 +5,6 @@
 - [Usage](usage.md)
 - [Logging](logging.md)
 - [➻ Upgrade Notes](upgrade.md)
-- [Clean Up](cleanup.md)
-
 
 # SimpleContactForm for ProcessWire: Upgrade Notes
 
