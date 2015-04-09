@@ -6,7 +6,7 @@
 - [➻ Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
 
-# SimpleContactForm for ProcessWire: Logging
+# Logging
 
 This module creates two log files.
 

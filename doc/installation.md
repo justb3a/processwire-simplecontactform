@@ -6,7 +6,7 @@
 - [Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
 
-# SimpleContactForm for ProcessWire: Installation
+# Installation
 
 This module will create templates. Please make sure that permissions of `site/templates` are set to 0777.
 

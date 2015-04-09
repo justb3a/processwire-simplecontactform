@@ -6,7 +6,7 @@
 - [Logging](logging.md)
 - [➻ Upgrade Notes](upgrade.md)
 
-# SimpleContactForm for ProcessWire: Upgrade Notes
+# Upgrade Notes
 
 ## Upgrading from <= 0.0.9
 

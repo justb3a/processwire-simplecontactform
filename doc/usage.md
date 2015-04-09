@@ -37,7 +37,7 @@
 	
 **Note:** You have to include the module in your own template file.
 
-**If the form is submitted successfully**
+**If the form was submitted successfully**
 
  * a success message is shown 
  * an email was sent
@@ -45,9 +45,10 @@
  * if save messages setting is turned on the message got saved
 
  
-**If an error occurs**
+**If not**
 
- * an error message is shown
+ * **either:** 
+  * an error message is shown
  * **or:** 
   * the message was marked as spam
   * redirect to root page
@@ -82,7 +83,7 @@ You can modify that templates for your own needs.
 
 ![Save Messages](https://github.com/justonestep/processwire-simplecontactform/blob/master/screens/received-messages.png)
 
-## add and remove fields
+## Add and remove fields
 
 **(A) add fields**
 
