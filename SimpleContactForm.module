@@ -664,7 +664,7 @@ EOD;
       $contactTemplate->save();
     }
 
-    $tPath = $this->config->paths->templates . $tName . $ext;
+    $tPath = $this->config->paths->templates . $tName . $this->useTwig;
     if (!file_exists($tPath)) {
       // add form
       $form = $this->buildForm();
@@ -849,10 +849,9 @@ EOD;
    * create a page for holding the received messages
    *
    * @param string $templateName
-   * @param string $ext
    */
   private function createReceivedMessagesTemplate($templateName) {
-    $tPath = $this->config->paths->templates . $templateName . $ext;
+    $tPath = $this->config->paths->templates . $templateName . $this->useTwig;
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
       $content = $this->getMessagesTemplateContent($table, $templateName, $this->repeaterName);
@@ -962,7 +961,7 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
-      $this->useTwig =  ((int)$configDataUpdated['useTwig'] === 1) ? '.twig' : '.php';
+      $this->useTwig =  (boolval($configDataUpdated['useTwig'])) ? '.twig' : '.php';
       $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $this->useTwig;
 
       // check whether to save the received messages
