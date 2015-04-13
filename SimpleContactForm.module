@@ -313,7 +313,7 @@ EOD;
       $this->allFields = explode(',', $this->allFields);
       $this->pageName = 'scf-messages';
       $this->repeaterName = 'repeater_scfmessages';
-      $this->useTwig = boolval($this->useTwig);
+      $this->useTwig = $this->boolval($this->useTwig);
     }
   }
 
@@ -966,7 +966,7 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
-      $this->useTwig = boolval($configDataUpdated['useTwig']);
+      $this->useTwig = $this->boolval($configDataUpdated['useTwig']);
       $ext = $this->useTwig ? '.twig' : '.php';
       $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $ext;
 
@@ -1148,12 +1148,15 @@ EOD;
         $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
         $tContent = file_get_contents($t);
         $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
-        $newContent = substr_replace($tContent, $inputfields->render(), end($split)[1], 0);
+        if (is_array($split) && is_array(end($split)) && array_key_exists(1, end($split))) {
+          $endSplit = end($split);
+          $newContent = substr_replace($tContent, $inputfields->render(), $endSplit[1], 0);
 
-        $template = fopen($t, 'w');
-        chmod($t, 0766);
-        fwrite($template, html_entity_decode($newContent));
-        fclose($template);
+          $template = fopen($t, 'w');
+          chmod($t, 0766);
+          fwrite($template, html_entity_decode($newContent));
+          fclose($template);
+        }
 
         // append new fields and header in save messages template
         // first check if save message setting is on
@@ -1184,6 +1187,23 @@ EOD;
    */
   public function decamelize($word) {
     return strtolower(preg_replace('/(?!^)[[:upper:]]+/', '_$0', $word));
+  }
+
+  /**
+   * get the boolean value of a variable
+   *
+   * @param $val
+   */
+  public function boolval($val) {
+    if (!function_exists('boolval')) {
+      // (PHP 5 < 5.5.0)
+      $bool = (bool) $val;
+    } else {
+      // (PHP 5 >= 5.5.0)
+      $bool = boolval($val);
+    }
+
+    return $bool;
   }
 
   /*
@@ -1246,7 +1266,7 @@ EOD;
      */
     public function ___uninstall() {
       // first check whether to clean up everything
-      if (boolval($this->input->post->cleanup)) {
+      if ($this->boolval($this->input->post->cleanup)) {
         // delete pages
         $page = $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'));
         if ($page->id) $page->delete();
