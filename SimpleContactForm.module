@@ -42,7 +42,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'requiredFields' => 'fullName,email,message',
     'emailField' => 'email',
     'saveMessages' => true,
-    'antiSpamTimeMin' => '5',
+    'antiSpamTimeMin' => '0',
     'antiSpamTimeMax' => '90',
     'antiSpamPerDay' => '3',
     'antiSpamExcludeIps' => '127.0.0.1',
@@ -429,7 +429,7 @@ EOD;
   private function getMessageContent() {
     $message = array();
     foreach ($this->allFields as $inputfield) {
-      $message[] = $inputfield . ': ' . $this->sanitizer->text($this->input->post->{$inputfield});
+      $message[] = $inputfield . ': ' . $this->sanitizer->textarea($this->input->post->{$inputfield});
     }
     $date = new DateTime();
     $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
