@@ -471,7 +471,7 @@ EOD;
           $newEntry = $page->{$this->repeaterName}->getNew();
 
           foreach ($this->allFields as $inputfield) {
-            $newEntry->{'scf_' . $inputfield} = $this->sanitizer->text($this->input->post->{$inputfield});
+            $newEntry->{'scf_' . $inputfield} = $this->sanitizer->textarea($this->input->post->{$inputfield});
           }
           $date = new DateTime();
           $newEntry->scf_date = $date->getTimestamp();
