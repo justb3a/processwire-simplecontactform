@@ -349,7 +349,15 @@ EOD;
    */
   public function moveUninstall(HookEvent $event) {
     $return = $event->return;
-    if (preg_match('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', $return, $matches, PREG_OFFSET_CAPTURE)) {
+
+    if (isset($_POST['name'])) $moduleName = $_POST['name'];
+      else if(isset($_GET['name'])) $moduleName = $_GET['name'];
+
+    $moduleName = $this->sanitizer->name($moduleName);
+    if (
+      $moduleName === self::CLASS_NAME &&
+      preg_match('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', $return, $matches, PREG_OFFSET_CAPTURE)
+    ) {
       $move = preg_replace('/collapsed\d\sInputfieldStateCollapsed/', '', $matches[0][0]);
       $return = preg_replace('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', '', $return);
       $offset = $matches[0][1] - strlen($return);
@@ -642,9 +650,9 @@ EOD;
   }
 
   /**
-  * create a page for holding the form fields
-  *
-  */
+   * create a page for holding the form fields
+   *
+   */
   protected function createContactPage() {
     $tName = $this->decamelize(self::CLASS_NAME);
 
@@ -1257,53 +1265,53 @@ EOD;
     }
   }
 
-    /**
-     * called only when the module is uninstalled
-     * this should return the site to the same state it was in before the module was installed
-     *
-     * @access public
-     *
-     */
-    public function ___uninstall() {
-      // first check whether to clean up everything
-      if ($this->boolval($this->input->post->cleanup)) {
-        // delete pages
-        $page = $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'));
-        if ($page->id) $page->delete();
+  /**
+   * called only when the module is uninstalled
+   * this should return the site to the same state it was in before the module was installed
+   *
+   * @access public
+   *
+   */
+  public function ___uninstall() {
+    // first check whether to clean up everything
+    if ($this->boolval($this->input->post->cleanup)) {
+      // delete pages
+      $page = $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'));
+      if ($page->id) $page->delete();
 
-        // delete templates
-        $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
-        foreach ($templates as $template) {
-          if ($template->id) {
-            if ($this->config->templateExtension === 'php') {
-              $fileWithOtherExt = preg_replace('/php$/', 'twig', $template->filename);
-            } else {
-              $fileWithOtherExt = preg_replace('/twig$/', 'php', $template->filename);
-            }
-
-            if (file_exists($template->filename)) unlink($template->filename);
-            if (file_exists($fileWithOtherExt)) unlink($fileWithOtherExt);
-
-            $template->flags = Template::flagSystemOverride;
-            $template->flags = 0; // all flags now removed, can be deleted
-            $this->templates->delete($template);
-
-            // delete fieldgroups
-            $fg = $this->fieldgroups->get($template->name);
-            if ($fg->id) $this->fieldgroups->delete($fg);
+      // delete templates
+      $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
+      foreach ($templates as $template) {
+        if ($template->id) {
+          if ($this->config->templateExtension === 'php') {
+            $fileWithOtherExt = preg_replace('/php$/', 'twig', $template->filename);
+          } else {
+            $fileWithOtherExt = preg_replace('/twig$/', 'php', $template->filename);
           }
-        }
 
-        // delete fields
-        foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
-          if ($field->id) $this->fields->delete($field);
+          if (file_exists($template->filename)) unlink($template->filename);
+          if (file_exists($fileWithOtherExt)) unlink($fileWithOtherExt);
+
+          $template->flags = Template::flagSystemOverride;
+          $template->flags = 0; // all flags now removed, can be deleted
+          $this->templates->delete($template);
+
+          // delete fieldgroups
+          $fg = $this->fieldgroups->get($template->name);
+          if ($fg->id) $this->fieldgroups->delete($fg);
         }
       }
+
+      // delete fields
+      foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
+        if ($field->id) $this->fields->delete($field);
+      }
+    }
   }
 
   /**
-  * install routine
-  */
+   * install routine
+   */
   public function ___install() {
     $this->checkFilePermissions();
     wire('modules')->saveModuleConfigData($this, self::$defaults);
