@@ -385,11 +385,10 @@ EOD;
     // validate form and send mail
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
-    } else {
-      // set CSRF token name and value
-      $this->input->tokenName  = $this->session->CSRF->getTokenName();
-      $this->input->tokenValue = $this->session->CSRF->getTokenValue();
     }
+    // set CSRF token name and value
+    $this->input->tokenName  = $this->session->CSRF->getTokenName();
+    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     $contactPage = new Page();
     $contactPage->set('template', $this->decamelize(self::CLASS_NAME));
