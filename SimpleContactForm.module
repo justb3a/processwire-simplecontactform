@@ -385,11 +385,11 @@ EOD;
     // validate form and send mail
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
-    } else {
-      // set CSRF token name and value
-      $this->input->tokenName  = $this->session->CSRF->getTokenName();
-      $this->input->tokenValue = $this->session->CSRF->getTokenValue();
     }
+
+    // set CSRF token name and value
+    $this->input->tokenName  = $this->session->CSRF->getTokenName();
+    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     $contactPage = new Page();
     $contactPage->set('template', $this->decamelize(self::CLASS_NAME));
@@ -402,11 +402,13 @@ EOD;
    */
   private function validateFields() {
     $error = false;
+    $log = array();
     $form = array();
 
     // first check valid mail address
     if (!empty($this->emailField)) {
       $form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
+      if (empty($form[$this->emailField])) $log[] = "The E-Mail address is invalid.";
     }
 
     // second check required fields
@@ -422,10 +424,12 @@ EOD;
     // email fields do not need to be validated here, sanitizer does that already!
     foreach ($form as $field => $value) {
       if (empty($value)) {
+        $log[] = "Field $field should not be blank.";
         $error = true;
-        continue;
       }
     }
+
+    if (!empty($log)) $this->log->save(implode(', ', $log));
 
     return $error;
   }
@@ -522,13 +526,18 @@ EOD;
       $this->logSpam->save('CSRF Token validation failed.');
     }
 
+    $countFields = count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs;
+    $countInputs = count($this->input->post);
+
+    if ($this->input->post->error || $this->input->post->success) $countInputs--;
+
     if ($spam === false) {
       // always test:
       if (!empty($this->input->post->{'scf-website'})) {
         // evaluate honeypot
         $spam = true;
         $this->logSpam->save('Honeypot field was filled.');
-      } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
+      } elseif ($countFields !== $countInputs) {
         // check number of fields
         $spam = true;
         $this->logSpam->save('Number of fields does not match.');
