@@ -7,8 +7,8 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.1.1
-* @copyright Copyright (c) 2014
+* @version 0.1.2
+* @copyright Copyright (c) 2015
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
 */
@@ -37,6 +37,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     'emailSubject' => 'New Web Contact Form Submission',
     'successMessage' => 'Thank you, your submission has been sent.',
     'errorMessage' => 'Please verify the data you have entered.',
+    'emailMessage' => '',
     'emailServer' => 'noreply@server.com',
     'allFields' => 'fullName,email,message',
     'requiredFields' => 'fullName,email,message',
@@ -62,7 +63,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
-      'version' => 11,
+      'version' => 12,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -111,21 +112,20 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'columnWidth' => 100,
         'collapsed' => Inputfield::collapsedNo
       ),
-      'fullName' => array(
-        'type' => 'InputfieldText',
-        'description' => 'Full name of the recipient',
-        'size' => 45,
-        'placeholder' => 'firstname lastname',
-        'columnWidth' => 50,
-        'required' => true
-      ),
       'emailTo' => array(
         'type' => 'InputfieldText',
-        'description' => 'E-mail address of the recipient',
-        'size' => 45,
+        'description' => 'E-mail address(es) of the recipient(s). Scheme: "Example <info@mail.com>, Name <foo@bar.de>, noreply@foo.bar"',
+        'size' => 100,
         'placeholder' => 'xxx@xxx.xx',
         'columnWidth' => 50,
         'required' => true
+      ),
+      'fullName' => array(
+        'type' => 'InputfieldText',
+        'description' => 'Fallback: Full name of the recipient',
+        'size' => 45,
+        'placeholder' => 'firstname lastname',
+        'columnWidth' => 50
       ),
       'emailSubject' => array(
         'type' => 'InputfieldText',
@@ -135,7 +135,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       ),
       'emailServer' => array(
         'type' => 'InputfieldText',
-        'description' => 'Server address',
+        'description' => 'Server address. Scheme: "FromName <noreply@mail.com>"',
         'size' => 45,
         'columnWidth' => 50
       ),
@@ -179,6 +179,12 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
         'type' => 'InputfieldTextarea',
         'description' => 'Error message',
         'rows' => 2,
+        'columnWidth' => 50
+      ),
+      'emailMessage' => array(
+        'type' => 'InputfieldTextarea',
+        'description' => 'Email message (optional - overwrites basic mail template). Use %fieldName% as placeholder, for example %fullName%.',
+        'rows' => 5,
         'columnWidth' => 50
       ),
       'spam' => array(
@@ -305,7 +311,6 @@ EOD;
     if (!empty($this->modules->getInstall(self::CLASS_NAME)->data)) {
       // add log file
       $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
-      $this->logSpam = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-spam-log.txt');
 
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
@@ -385,11 +390,11 @@ EOD;
     // validate form and send mail
     if (!empty($this->input->post->submitted)) {
       $this->sendMail();
-    } else {
-      // set CSRF token name and value
-      $this->input->tokenName  = $this->session->CSRF->getTokenName();
-      $this->input->tokenValue = $this->session->CSRF->getTokenValue();
     }
+
+    // set CSRF token name and value
+    $this->input->tokenName  = $this->session->CSRF->getTokenName();
+    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     $contactPage = new Page();
     $contactPage->set('template', $this->decamelize(self::CLASS_NAME));
@@ -402,11 +407,13 @@ EOD;
    */
   private function validateFields() {
     $error = false;
+    $log = array();
     $form = array();
 
     // first check valid mail address
     if (!empty($this->emailField)) {
       $form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
+      if (empty($form[$this->emailField])) $log[] = "The E-Mail address is invalid.";
     }
 
     // second check required fields
@@ -422,10 +429,12 @@ EOD;
     // email fields do not need to be validated here, sanitizer does that already!
     foreach ($form as $field => $value) {
       if (empty($value)) {
+        $log[] = "Field $field should not be blank.";
         $error = true;
-        continue;
       }
     }
+
+    if (!empty($log)) $this->log->save('[FAILURE] ' . implode(', ', $log));
 
     return $error;
   }
@@ -435,14 +444,27 @@ EOD;
    *
    */
   private function getMessageContent() {
-    $message = array();
-    foreach ($this->allFields as $inputfield) {
-      $message[] = $inputfield . ': ' . $this->sanitizer->textarea($this->input->post->{$inputfield});
-    }
-    $date = new DateTime();
-    $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
 
-    return implode("\r\n", $message);
+    if (!empty($this->data['emailMessage'])) {
+      $text = $this->data['emailMessage'];
+      $date = new DateTime();
+      if (preg_match('/\%date\%/', $text)) $text = str_replace('%date%', $date->format('Y-m-d H:i:s'), $text);
+      preg_match_all('/\%(.*?)\%/', $text, $matches);
+
+      foreach ($matches[0] as $key => $match) {
+        $text = str_replace($match, $this->sanitizer->textarea($this->input->post->{$matches[1][$key]}), $text);
+      }
+    } else {
+      $message = array();
+      foreach ($this->allFields as $inputfield) {
+        $message[] = $inputfield . ': ' . $this->sanitizer->textarea($this->input->post->{$inputfield});
+      }
+      $date = new DateTime();
+      $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
+      $text = implode("\r\n", $message);
+    }
+
+    return  $text;
   }
 
   /**
@@ -456,7 +478,8 @@ EOD;
     // no errors - send mail and save message in database
     if ($error === false) {
       $wireMail = new WireMail();
-      $wireMail->to($this->data['emailTo']);
+
+      $wireMail->to(explode(',', trim($this->data['emailTo'])));
       $wireMail->toName($this->data['fullName']);
       $wireMail->from($this->data['emailServer']);
       $wireMail->subject($this->data['emailSubject']);
@@ -471,7 +494,7 @@ EOD;
           $this->sanitizer->text($this->input->post->email)
         );
 
-        $this->log->save(implode(', ', $logmessage));
+        $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
 
         // edit page
         if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
@@ -519,31 +542,36 @@ EOD;
       $this->session->CSRF->validate();
     } catch (WireCSRFException $e) {
       $spam = true;
-      $this->logSpam->save('CSRF Token validation failed.');
+      $this->log->save('[FAILURE] CSRF Token validation failed.');
     }
+
+    $countFields = count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs;
+    $countInputs = count($this->input->post);
+
+    if ($this->input->post->error || $this->input->post->success) $countInputs--;
 
     if ($spam === false) {
       // always test:
       if (!empty($this->input->post->{'scf-website'})) {
         // evaluate honeypot
         $spam = true;
-        $this->logSpam->save('Honeypot field was filled.');
-      } elseif (count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs !== count($this->input->post)) {
+        $this->log->save('[FAILURE] Honeypot field was filled.');
+      } elseif ($countFields !== $countInputs) {
         // check number of fields
         $spam = true;
-        $this->logSpam->save('Number of fields does not match.');
+        $this->log->save('[FAILURE] Number of fields does not match.');
       } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
         // check HTTP_USER_AGENT
         $spam = true;
-        $this->logSpam->save('User Agent is not allowed.');
+        $this->log->save('[FAILURE] User Agent is not allowed.');
       } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
         // check HTTP_REFERER und HTTP_USER_AGENT
         $spam = true;
-        $this->logSpam->save('User Agent and HTTP Referer are empty.');
+        $this->log->save('[FAILURE] User Agent and HTTP Referer are empty.');
       } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
         // check date difference
         $spam = true;
-        $this->logSpam->save('Date difference is out of range.');
+        $this->log->save('[FAILURE] Date difference is out of range.');
       }
 
       // additional checks only if save messages feature is turned on
@@ -568,16 +596,16 @@ EOD;
 
           if ($totalLast24h >= $this->antiSpamPerDay) {
             $spam = true;
-            $this->logSpam->save('This IP address submitted this form too often.');
+            $this->log->save('[FAILURE] This IP address submitted this form too often.');
           }
         } elseif (in_array($currentIp, $spam['ips'])) {
           // check whether ip was already marked as spam
           $spam = true;
-          $this->logSpam->save("This IP address $currentIp was already marked as spam.");
+          $this->log->save("[FAILURE] This IP address $currentIp was already marked as spam.");
         } elseif (in_array($this->input->post->{$this->emailField}, $spam['mails'])) {
           // check whether mail address was already marked as spam
           $spam = true;
-          $this->logSpam->save('This mail address ' . $this->input->post->{$this->emailField} . ' was already marked as spam.');
+          $this->log->save('[FAILURE] This mail address ' . $this->input->post->{$this->emailField} . ' was already marked as spam.');
         }
       }
     }
