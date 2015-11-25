@@ -477,7 +477,7 @@ EOD;
 
     // no errors - send mail and save message in database
     if ($error === false) {
-      $wireMail = new WireMail();
+      $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
 
       $wireMail->to(explode(',', trim($this->data['emailTo'])));
       $wireMail->toName($this->data['fullName']);
