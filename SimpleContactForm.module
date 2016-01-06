@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.1.2
+* @version 0.2.0
 * @copyright Copyright (c) 2015
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -63,7 +63,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
-      'version' => 12,
+      'version' => 20,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -298,7 +298,7 @@ EOD;
   public function init() {
     // check if module is autoload, if not, change it
     if (!$this->modules->isAutoload($this->modules->get(self::CLASS_NAME))) {
-      $this->upgradeModuleLte009Flags();
+      $this->correctFlags();
     }
 
     // assign API variables to make things a little easier
@@ -314,8 +314,10 @@ EOD;
 
       // convert comma separated values to array
       $this->requiredFields = explode(',', $this->requiredFields);
-      $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip');
+      $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip,template');
       $this->allFields = explode(',', $this->allFields);
+      $this->emailFields = explode(',', $this->emailField);
+      $this->templateName = $this->decamelize(self::CLASS_NAME);
       $this->pageName = 'scf-messages';
       $this->repeaterName = 'repeater_scfmessages';
       $this->useTwig = $this->boolval($this->useTwig);
@@ -374,7 +376,7 @@ EOD;
   /**
    * check file permissions
    */
-  private function checkFilePermissions() {
+  protected function checkFilePermissions() {
     $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
     if ($currentMode != '0777') {
       chmod($this->config->paths->templates, 0777);
@@ -383,42 +385,166 @@ EOD;
   }
 
   /**
-   * Render
-   *
+   * Render Form
    */
-  public function ___render() {
-    // validate form and send mail
-    if (!empty($this->input->post->submitted)) {
-      $this->sendMail();
-    }
-
+  private function renderForm() {
     // set CSRF token name and value
     $this->input->tokenName  = $this->session->CSRF->getTokenName();
     $this->input->tokenValue = $this->session->CSRF->getTokenValue();
 
     $contactPage = new Page();
-    $contactPage->set('template', $this->decamelize(self::CLASS_NAME));
+    $contactPage->set('template', $this->templateName);
+    $contactPage->set('parent', $this->page->id);
     return $contactPage->render();
+  }
+
+  /**
+   * Render
+   * available keys:
+   *   requiredFields, allFields, emailFields
+   *   submitName, templateName, pageName, repeaterName
+   *   successMessage, errorMessage, emailMessage, emailAddMessage
+   *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
+   *   saveMessages, useTwig
+   *
+   * @param array $options
+   *
+   */
+  public function ___render($options = array()) {
+    if ($options) {
+      return $this->renderInstance($options);
+    } else {
+      // validate form and send mail
+      if (!empty($this->input->post->submitted)) $this->sendMail();
+      return $this->renderForm();
+    }
+  }
+
+  /**
+   * Render further instance
+   * available keys:
+   *   requiredFields, allFields, emailFields
+   *   submitName, templateName, pageName, repeaterName
+   *   successMessage, errorMessage, emailMessage, emailAddMessage
+   *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
+   *   saveMessages, useTwig
+   *
+   * @param array $options
+   */
+  private function renderInstance($options) {
+    // overwrite module config settings
+    foreach ($options as $key => $value) {
+      switch ($key) {
+
+        // === fields
+        case 'requiredFields':
+          $this->requiredFields = explode(',', $value);
+          break;
+        case 'allFields':
+          $this->allFieldsExtended = explode(',', $value . ',date,ip,template');
+          $this->allFields = explode(',', $value);
+          break;
+        case 'emailFields':
+          $this->emailFields = explode(',', $value);
+          break;
+
+        // === names
+        case 'submitName':
+          $submitName = $value;
+        case 'templateName':
+          $this->templateName = $value;
+          break;
+        case 'pageName':
+          $this->pageName = $value;
+          break;
+        case 'repeaterName':
+          $this->repeaterName = $value;
+          break;
+
+        // === messages
+        case 'successMessage':
+          $this->successMessage = $value;
+          break;
+        case 'errorMessage':
+          $this->errorMessage = $value;
+          break;
+        case 'emailMessage':
+          $this->emailMessage = $value;
+          break;
+        case 'emailAddMessage':
+          $this->emailAddMessage = $value;
+          break;
+
+        // === email
+        case 'emailSubject':
+          $this->emailSubject = $value;
+          break;
+        case 'emailTo':
+          $this->emailTo = $value;
+          break;
+        case 'emailServer':
+          $this->emailServer = $value;
+          break;
+        case 'emailAdd':
+          $this->emailAdd = $value;
+          break;
+        case 'emailAddSubject':
+          $this->emailAddSubject = $value;
+          break;
+        case 'emailAddTo':
+          $this->emailAddTo = $value;
+          break;
+
+        // === general
+        case 'saveMessages':
+          $this->saveMessages = $this->boolval($value);
+          break;
+        case 'useTwig':
+          $this->useTwig = $this->boolval($value);
+          break;
+      }
+    }
+
+    // send additional email?
+    if (isset($this->emailAdd) && $this->emailAdd) {
+      if (!isset($this->emailAddMessage)) $this->emailAddMessage = $this->emailMessage;
+      if (!isset($this->emailAddTo)) $this->emailAddTo = $this->emailTo;
+      if (!isset($this->emailAddSubject)) $this->emailAddSubject = $this->emailSubject;
+    }
+
+    // on form submit
+    if (isset($submitName)) {
+      if (!empty($this->input->post->submitted) && !empty($this->input->post->{$submitName})) {
+        $this->sendMail();
+      }
+    } elseif (!empty($this->input->post->submitted)) {
+        $this->sendMail();
+    }
+
+    // execute render
+    return $this->renderForm();
   }
 
   /**
    * validate Fields
    *
    */
-  private function validateFields() {
+  public function ___validateFields() {
     $error = false;
     $log = array();
     $form = array();
 
     // first check valid mail address
-    if (!empty($this->emailField)) {
-      $form[$this->emailField] = $this->sanitizer->email($this->input->post->{$this->emailField});
-      if (empty($form[$this->emailField])) $log[] = "The E-Mail address is invalid.";
+    if (!empty($this->emailFields) && is_array($this->emailFields)) {
+      foreach ($this->emailFields as $emailField) {
+        $form[$emailField] = $this->sanitizer->email($this->input->post->{$emailField});
+        if (empty($form[$emailField])) $log[] = "The E-Mail address is invalid.";
+      }
     }
 
     // second check required fields
     foreach ($this->requiredFields as $requiredField) {
-      if ($requiredField === $this->emailField) {
+      if (in_array($requiredField, $this->emailFields)) {
         $form[$requiredField] = $this->sanitizer->email($this->input->post->{$requiredField});
       } else {
         $form[$requiredField] = $this->sanitizer->text($this->input->post->{$requiredField});
@@ -442,11 +568,11 @@ EOD;
   /**
    * get mail message content
    *
+   * @param string $text
+   * @return string
    */
-  private function getMessageContent() {
-
-    if (!empty($this->data['emailMessage'])) {
-      $text = $this->data['emailMessage'];
+  private function getMessageContent($text) {
+    if (!empty($text)) {
       $date = new DateTime();
       if (preg_match('/\%date\%/', $text)) $text = str_replace('%date%', $date->format('Y-m-d H:i:s'), $text);
       preg_match_all('/\%(.*?)\%/', $text, $matches);
@@ -471,7 +597,7 @@ EOD;
    * Send Mail
    *
    */
-  public function sendMail() {
+  public function ___sendMail() {
     $this->antiSpam();
     $error = $this->validateFields();
 
@@ -479,15 +605,20 @@ EOD;
     if ($error === false) {
       $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
 
-      $wireMail->to(explode(',', trim($this->data['emailTo'])));
-      $wireMail->toName($this->data['fullName']);
-      $wireMail->from($this->data['emailServer']);
-      $wireMail->subject($this->data['emailSubject']);
-      $wireMail->body($this->getMessageContent());
+      $wireMail->to(explode(',', trim($this->emailTo)));
+      $wireMail->toName($this->fullName);
+      $wireMail->from($this->emailServer);
+      $wireMail->subject($this->emailSubject);
+      $wireMail->body(trim($this->getMessageContent($this->emailMessage)));
       $numSent = $wireMail->send();
 
+      // send additional mail
+      if (isset($this->emailAdd) && $this->emailAdd) {
+        $this->sendAdditionalMail();
+      }
+
       if ($numSent > 0) {
-        $this->input->post->success = $this->data['successMessage'];
+        $this->input->post->success = $this->successMessage;
         $logmessage = array(
           $_SERVER['HTTP_USER_AGENT'],
           $_SERVER['REMOTE_ADDR'],
@@ -507,6 +638,7 @@ EOD;
           $date = new DateTime();
           $newEntry->scf_date = $date->getTimestamp();
           $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
+          $newEntry->scf_template = $page->template->name;
 
           $newEntry->save();
           $page->setOutputFormatting(false);
@@ -521,7 +653,21 @@ EOD;
     }
 
     // set error message
-    if ($error === true) $this->input->post->error = $this->data['errorMessage'];
+    if ($error === true) $this->input->post->error = $this->errorMessage;
+  }
+
+  /**
+   * Send Additional Mail
+   *
+   */
+  public function ___sendAdditionalMail() {
+    $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
+
+    $wireMail->to(explode(',', trim($this->emailAddTo)));
+    $wireMail->from($this->emailServer);
+    $wireMail->subject($this->emailAddSubject);
+    $wireMail->body(trim($this->getMessageContent($this->emailAddMessage)));
+    $wireMail->send();
   }
 
   /**
@@ -547,7 +693,6 @@ EOD;
 
     $countFields = count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs;
     $countInputs = count($this->input->post);
-
     if ($this->input->post->error || $this->input->post->success) $countInputs--;
 
     if ($spam === false) {
@@ -602,10 +747,14 @@ EOD;
           // check whether ip was already marked as spam
           $spam = true;
           $this->log->save("[FAILURE] This IP address $currentIp was already marked as spam.");
-        } elseif (in_array($this->input->post->{$this->emailField}, $spam['mails'])) {
-          // check whether mail address was already marked as spam
-          $spam = true;
-          $this->log->save('[FAILURE] This mail address ' . $this->input->post->{$this->emailField} . ' was already marked as spam.');
+        } else {
+          foreach ($this->emailFields as $emailField) {
+            if (in_array($this->input->post->{$emailField}, $spam['mails'])) {
+              // check whether mail address was already marked as spam
+              $spam = true;
+              $this->log->save('[FAILURE] This mail address ' . $this->input->post->{$emailField} . ' was already marked as spam.');
+            }
+          }
         }
       }
     }
@@ -766,11 +915,11 @@ EOD;
       'content' => array()
     );
 
-    foreach($this->allFieldsExtended as $inputfield) {
+    foreach ($this->allFieldsExtended as $inputfield) {
       if ($this->useTwig) {
         $table['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
 
-        if ($inputfield === $this->emailField) {
+        if (in_array($inputfield, $this->emailFields)) {
           $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
         } elseif ($inputfield === 'date') {
           $table['content'][] = '<td>{{message.scf_' . $inputfield . '|date("d.m.Y H:i")}}</td>';
@@ -781,7 +930,7 @@ EOD;
         $table['head'][] = '<th><?= $fields->get("scf_' . $inputfield . '")->label; ?></th>';
 
         $input = "scf_{$inputfield}";
-        if ($inputfield === $this->emailField) {
+        if (in_array($inputfield, $this->emailFields)) {
           $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
         } elseif ($inputfield === 'date') {
           $table['content'][] = '<td><?= date("d.m.Y H:i", $message->' . $input . '); ?></td>';
@@ -1007,14 +1156,13 @@ EOD;
       $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $ext;
 
       // check whether to save the received messages
-      if (!empty($configDataUpdated['saveMessages'])) {
+      if ($configDataUpdated['saveMessages']) {
         $tName = $this->decamelize(self::CLASS_NAME . 'Messages');
 
         if (!$this->templates->get($tName) instanceof Template) {
           $this->createReceivedMessagesPage($tName);
         } else {
-          // upgrade module from <= v0.0.9
-          $this->upgradeModuleLte009Fields();
+          $this->addTemplateField();
         }
 
         $this->createReceivedMessagesTemplate($tName);
@@ -1243,10 +1391,9 @@ EOD;
   }
 
   /*
-   * upgrade module from <= v0.0.9
    * add autoload flag
    */
-  protected function upgradeModuleLte009Flags() {
+  protected function correctFlags() {
     // mark module as autoload
     $db = wire('database');
     $table = $db->escapeTable('modules');
@@ -1262,33 +1409,23 @@ EOD;
   }
 
   /*
-   * upgrade module from <= v0.0.9
-   * add spam fields for IP and Mail
+   * add template field - save template
    */
-  protected function upgradeModuleLte009Fields() {
-    if (!is_null($this->fields->get('scf_email'))
-      && is_null($this->fields->get('scf_spamIp'))
-      && is_null($this->fields->get('scf_spamMail'))) {
-
-      // add fields to mark spam
-      foreach (array('spamIp', 'spamMail') as $name) {
-        preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
-
-        $f = new Field();
-        $f->type = $this->modules->get('FieldtypeCheckbox');
-        $f->name = 'scf_' . $name;
-        $f->label = 'Add ' . $matches[0][0] . ' to spam list';
-        $f->tags = self::TAG_NAME;
-        $f->columnWidth = '100';
-        $f->save();
-      }
+  protected function addTemplateField() {
+    $name = 'template';
+    if (is_null($this->fields->get("scf_$name"))) {
+      $f = new Field();
+      $f->type = $this->modules->get('FieldtypeText');
+      $f->name = "scf_$name";
+      $f->label = 'SCF - ' . ucfirst($name);
+      $f->tags = self::TAG_NAME;
+      $f->columnWidth = '25';
+      $f->save();
 
       $repeaterField = $this->fields->get($this->repeaterName);
 
       $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-      foreach (array('spamIp', 'spamMail') as $field) {
-        $repeaterFg->append($this->fields->get('scf_' . $field));
-      }
+      $repeaterFg->append($this->fields->get('scf_' . $name));
       $repeaterFg->save();
     }
   }

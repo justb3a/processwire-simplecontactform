@@ -2,7 +2,8 @@
 - [Installation](installation.md)
 - [Module Settings](settings.md)
 - [Spam Protection](spam.md)
-- [Usage](usage.md)
+- [Basic Usage](usage-basic.md)
+- [Advanced Usage](usage-advanced.md)
 - [➻ Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
 

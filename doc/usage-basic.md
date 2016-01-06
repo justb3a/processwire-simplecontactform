@@ -2,11 +2,12 @@
 - [Installation](installation.md)
 - [Module Settings](settings.md)
 - [Spam Protection](spam.md)
-- [➻ Usage](usage.md)
+- [➻ Basic Usage](usage-basic.md)
+- [Advanced Usage](usage-advanced.md)
 - [Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
 
-# Usage
+# Basic Usage
 
 1. Create a template for your contact form page (if you don't already have one).
 2. Add the fields you want to use to this template as you are used to.
