@@ -2,7 +2,8 @@
 - [Installation](installation.md)
 - [➻ Module Settings](settings.md)
 - [Spam Protection](spam.md)
-- [Usage](usage.md)
+- [Basic Usage](usage-basic.md)
+- [Advanced Usage](usage-advanced.md)
 - [Logging](logging.md)
 - [Upgrade Notes](upgrade.md)
 
@@ -23,7 +24,7 @@
 | &#9662; **FIELDS**              | &nbsp;                                                                                                                                                                                                          | &nbsp;                                   |
 | allFields                       | Comma-separated list of all fields                                                                                                                                                                              | fullName,email,message                   |
 | requiredFields                  | Comma-seperated list of required fields                                                                                                                                                                         | fullName,email,message                   |
-| emailField                      | field, which should be validated as an E-mail address                                                                                                                                                           | email                                    |
+| emailField                      | fields, which should be validated as an E-mail address                                                                                                                                                           | email                                    |
 | &nbsp;                          | &nbsp;                                                                                                                                                                                                          | &nbsp;                                   |
 | &#9662; **MESSAGES**            | &nbsp;                                                                                                                                                                                                          | &nbsp;                                   |
 | successMessage                  | Success message                                                                                                                                                                                                 | Thank you, your submission has been sent |
