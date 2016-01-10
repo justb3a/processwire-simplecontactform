@@ -7,7 +7,7 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.2.0
+* @version 0.2.1
 * @copyright Copyright (c) 2015
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -63,7 +63,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
-      'version' => 20,
+      'version' => 21,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -177,7 +177,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       ),
       'errorMessage' => array(
         'type' => 'InputfieldTextarea',
-        'description' => 'Error message',
+        'description' => 'Error message, invalid input.',
         'rows' => 2,
         'columnWidth' => 50
       ),
@@ -617,43 +617,47 @@ EOD;
         $this->sendAdditionalMail();
       }
 
-      if ($numSent > 0) {
-        $this->input->post->success = $this->successMessage;
+      // return success - regardless whether a mail has been sent or not
+      $this->input->post->success = $this->successMessage;
+      
+      // log whether a mail has been sent or not
+      if ($numSent) {
         $logmessage = array(
           $_SERVER['HTTP_USER_AGENT'],
           $_SERVER['REMOTE_ADDR'],
-          $this->sanitizer->text($this->input->post->email)
+          $this->sanitizer->text($this->emailFields)
         );
 
         $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
-
-        // edit page
-        if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
-          $page = $this->pages->findOne('template=simple_contact_form_messages');
-          $newEntry = $page->{$this->repeaterName}->getNew();
-
-          foreach ($this->allFields as $inputfield) {
-            $newEntry->{'scf_' . $inputfield} = $this->sanitizer->textarea($this->input->post->{$inputfield});
-          }
-          $date = new DateTime();
-          $newEntry->scf_date = $date->getTimestamp();
-          $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
-          $newEntry->scf_template = $page->template->name;
-
-          $newEntry->save();
-          $page->setOutputFormatting(false);
-          $page->save();
-        }
-
-        // don't send mail twice, deactivate condition
-        $this->input->post->submitted = NULL;
       } else {
-        $error = true;
+        // mail has not been sent
+        $this->log->save("[ERROR] Mail has not been sent to {$this->emailTo}");
       }
+
+      // edit page - save message
+      if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
+        $page = $this->pages->findOne('template=simple_contact_form_messages');
+        $newEntry = $page->{$this->repeaterName}->getNew();
+
+        foreach ($this->allFields as $inputfield) {
+          $newEntry->{'scf_' . $inputfield} = $this->sanitizer->textarea($this->input->post->{$inputfield});
+        }
+        $date = new DateTime();
+        $newEntry->scf_date = $date->getTimestamp();
+        $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
+        $newEntry->scf_template = $page->template->name;
+
+        $newEntry->save();
+        $page->setOutputFormatting(false);
+        $page->save();
+      }
+
+      // don't send mail twice, deactivate condition
+      $this->input->post->submitted = NULL;
     }
 
     // set error message
-    if ($error === true) $this->input->post->error = $this->errorMessage;
+    if ($error) $this->input->post->error = $this->errorMessage;
   }
 
   /**
@@ -667,7 +671,19 @@ EOD;
     $wireMail->from($this->emailServer);
     $wireMail->subject($this->emailAddSubject);
     $wireMail->body(trim($this->getMessageContent($this->emailAddMessage)));
-    $wireMail->send();
+    $numSent = $wireMail->send();
+
+    if ($numSent) {
+        $logmessage = array(
+          $_SERVER['HTTP_USER_AGENT'],
+          $_SERVER['REMOTE_ADDR'],
+          $this->sanitizer->text($this->emailAddTo)
+        );
+
+        $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
+    } else {
+        $this->log->save("[ERROR] Additional mail could not be sent to {$this->emailAddTo}");
+    }
   }
 
   /**
