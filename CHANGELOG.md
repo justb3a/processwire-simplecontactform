@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.2.1 (2016-01-10)
+
+- data will be stored, regardless whether a mail has been sent or not
+- save corresponding log entry
+
 ### 0.2.0 (2016-01-06)
 
 - supports multiple instances
