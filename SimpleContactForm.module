@@ -7,8 +7,8 @@
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 0.2.1
-* @copyright Copyright (c) 2015
+* @version 1.0.0
+* @copyright Copyright (c) 2016
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
 */
@@ -29,30 +29,6 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   const TAG_NAME = 'scf';
 
   /**
-   * @field array Default config values
-   */
-  protected static $defaults = array(
-    'fullName' => '',
-    'emailTo' => '',
-    'emailSubject' => 'New Web Contact Form Submission',
-    'successMessage' => 'Thank you, your submission has been sent.',
-    'errorMessage' => 'Please verify the data you have entered.',
-    'emailMessage' => '',
-    'emailServer' => 'noreply@server.com',
-    'allFields' => 'fullName,email,message',
-    'requiredFields' => 'fullName,email,message',
-    'emailField' => 'email',
-    'saveMessages' => true,
-    'antiSpamTimeMin' => '0',
-    'antiSpamTimeMax' => '90',
-    'antiSpamPerDay' => '3',
-    'antiSpamExcludeIps' => '127.0.0.1',
-    'antiSpamCountAdditionalInputs' => '5',
-    'useTwig' => false,
-    'cleanup' => 0
-  );
-
-  /**
    * Retrieves module meta data
    * Implementation of the Module interface
    *
@@ -62,8 +38,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   public static function getModuleInfo() {
     return array(
       'title' => 'Simple Contact Form',
-      'summary' => 'Just a simple contact form (optional twig support). Not more and not less.',
-      'version' => 21,
+      'summary' => 'Just a simple contact form.',
+      'version' => 100,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -72,256 +48,23 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-   * Retrieves the list of config input fields
-   *
-   * Implementation of the ConfigurableModule interface
-   *
-   * @param array $data The config data
-   * @return InputfieldWrapper
-   * @see http://processwire.com/apigen/class-ConfigurableModule.html
-   */
-  public static function getModuleConfigInputfields(array $data) {
-    $fields = new InputfieldWrapper();
-    $modules = wire('modules');
-
-    // default config values
-    $data = array_merge(self::$defaults, $data);
-
-    $settings = array(
-      'general' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'General',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedNo
-      ),
-      'saveMessages' => array(
-        'type' => 'InputfieldCheckbox',
-        'description' => 'Save Messages',
-        'checked' => empty($data['saveMessages']) ? '' : 'checked',
-        'columnWidth' => 50
-      ),
-      'useTwig' => array(
-        'type' => 'InputfieldCheckbox',
-        'description' => 'Check if you use Twig as template engine',
-        'checked' => empty($data['useTwig']) ? '' : 'checked',
-        'columnWidth' => 50
-      ),
-      'email' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'Email',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedNo
-      ),
-      'emailTo' => array(
-        'type' => 'InputfieldText',
-        'description' => 'E-mail address(es) of the recipient(s). Scheme: "Example <info@mail.com>, Name <foo@bar.de>, noreply@foo.bar"',
-        'size' => 100,
-        'placeholder' => 'xxx@xxx.xx',
-        'columnWidth' => 50,
-        'required' => true
-      ),
-      'fullName' => array(
-        'type' => 'InputfieldText',
-        'description' => 'Fallback: Full name of the recipient',
-        'size' => 45,
-        'placeholder' => 'firstname lastname',
-        'columnWidth' => 50
-      ),
-      'emailSubject' => array(
-        'type' => 'InputfieldText',
-        'description' => 'E-Mail subject',
-        'size' => 45,
-        'columnWidth' => 50
-      ),
-      'emailServer' => array(
-        'type' => 'InputfieldText',
-        'description' => 'Server address. Scheme: "FromName <noreply@mail.com>"',
-        'size' => 45,
-        'columnWidth' => 50
-      ),
-      'fields' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'Fields',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedNo
-      ),
-      'allFields' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Comma-separated list of all fields',
-        'rows' => 2,
-        'columnWidth' => 33
-      ),
-      'requiredFields' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Comma-Seperated list of required fields',
-        'rows' => 2,
-        'columnWidth' => 33
-      ),
-      'emailField' => array(
-        'type' => 'InputfieldText',
-        'description' => 'field, which should be validated as an E-mail address',
-        'size' => 45,
-        'columnWidth' => 34
-      ),
-      'messages' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'Messages',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedYes
-      ),
-      'successMessage' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Success message',
-        'rows' => 2,
-        'columnWidth' => 50
-      ),
-      'errorMessage' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Error message, invalid input.',
-        'rows' => 2,
-        'columnWidth' => 50
-      ),
-      'emailMessage' => array(
-        'type' => 'InputfieldTextarea',
-        'description' => 'Email message (optional - overwrites basic mail template). Use %fieldName% as placeholder, for example %fullName%.',
-        'rows' => 5,
-        'columnWidth' => 50
-      ),
-      'spam' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'Spam',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedYes
-      ),
-      'antiSpamTimeMin' => array(
-        'type' => 'InputfieldText',
-        'description' => 'It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.',
-        'size' => 3,
-        'columnWidth' => 33
-      ),
-      'antiSpamTimeMax' => array(
-        'type' => 'InputfieldText',
-        'description' => 'It parses the time the user needs to fill out the form. If the time is over a maximum time, the submission is treated as Spam.',
-        'size' => 3,
-        'columnWidth' => 33
-      ),
-      'antiSpamPerDay' => array(
-        'type' => 'InputfieldText',
-        'description' => 'How often the form is allowed to be submitted by a single IP address in the last 24 hours.',
-        'size' => 3,
-        'columnWidth' => 34
-      ),
-      'antiSpamExcludeIps' => array(
-        'type' => 'InputfieldText',
-        'description' => 'Comma-Seperated list of IP addresses to be excluded from IP filtering.',
-        'size' => 45,
-        'columnWidth' => 33
-      ),
-      'antiSpamCountAdditionalInputs' => array(
-        'type' => 'InputfieldText',
-        'description' => 'Number of additional inputs. Spam bots often send more than the number of available fields. Default 5 (scf-date + scf-website + submitted + token + submit). AllFields will be added automatically.',
-        'size' => 45,
-        'columnWidth' => 33
-      ),
-      'uninstall' => array(
-        'type' => 'InputfieldFieldset',
-        'label' => 'Uninstall',
-        'columnWidth' => 100,
-        'collapsed' => Inputfield::collapsedYes,
-        'icon' => 'times-circle'
-      ),
-      'cleanup' => array(
-        'type' => 'InputfieldCheckbox',
-        'description' => 'If you check the following box all data containing files as well as database content will be permanently erased with no chance for recovery. It\'s recommended to make a backup before uninstalling this module.',
-        'checked' => empty($data['cleanup']) ? '' : 'checked',
-        'columnWidth' => 100,
-        'icon' => 'trash'
-      ),
-    );
-
-    $help = $modules->get('InputfieldMarkup');
-    $helpContent = <<<EOD
-<h2>Instructions:</h2>
-<ol>
-<li>Complete the form below and submit it.</li>
-<li>Create a template for your contact form page (if you don't already have one).</li>
-<li>In the template add the following line to include the form:
-<pre>{{modules.get('SimpleContactForm').render()}} //twig</pre>
-<pre>\$modules->get('SimpleContactForm')->render(); //php</pre></li>
-</ol>
-<p><a  target="_blank" href="https://github.com/justonestep/processwire-simplecontactform">Read more</a></p>
-EOD;
-    $help->value = $helpContent;
-    $fields->append($help);
-
-    // assign fields
-    foreach ($settings as $name => $s) {
-      $field = $modules->get($s['type']);
-      $field->name = $name;
-
-      if ($s['type'] != 'InputfieldFieldset') {
-        $field->label = $name;
-        $field->value = $data[$name];
-      }
-
-      foreach ($s as $key => $val) {
-        if ($key != 'type') {
-          $field->{$key} = $val;
-        }
-      }
-
-      if ($s['type'] === 'InputfieldFieldset') {
-        $fieldset = $field;
-        $fields->append($field);
-      } else {
-        $fieldset->add($field);
-      }
-    }
-
-    return $fields;
-  }
-
-  /**
    * Initialize the module
-   * Initialize a new web contact form
-   *
-   * Implementation of the Module interface
    *
    * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
-   *
-   * @see http://processwire.com/apigen/class-Module.html
-   *
-   * @param Template $template Template object holding the form's fields.
-   *
    */
   public function init() {
-    // check if module is autoload, if not, change it
-    if (!$this->modules->isAutoload($this->modules->get(self::CLASS_NAME))) {
-      $this->correctFlags();
-    }
+    // add log file
+    $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
 
-    // assign API variables to make things a little easier
-    $this->templates = wire('templates');
-    $this->input = wire('input');
-    $this->sanitizer = wire('sanitizer');
-    $this->pages = wire('pages');
-    $this->modules = wire('modules');
+    // convert comma separated values to array
+    $allFieldsExtended = $this->allFields;
+    foreach (array('date', 'ip', 'template') as $f) $allFieldsExtended[] = $f;
+    $this->allFieldsExtended = $allFieldsExtended;
 
-    if (!empty($this->modules->getInstall(self::CLASS_NAME)->data)) {
-      // add log file
-      $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
-
-      // convert comma separated values to array
-      $this->requiredFields = explode(',', $this->requiredFields);
-      $this->allFieldsExtended = explode(',', $this->allFields . ',date,ip,template');
-      $this->allFields = explode(',', $this->allFields);
-      $this->emailFields = explode(',', $this->emailField);
-      $this->templateName = $this->decamelize(self::CLASS_NAME);
-      $this->pageName = 'scf-messages';
-      $this->repeaterName = 'repeater_scfmessages';
-      $this->useTwig = $this->boolval($this->useTwig);
-    }
+    $this->templateName = $this->decamelize(self::CLASS_NAME); // @todo: deprecated
+    $this->pageName = 'scf-messages'; // @todo: deprecated
+    $this->repeaterName = 'repeater_scfmessages'; // @todo: deprecated
   }
 
   /**
@@ -329,23 +72,10 @@ EOD;
    *
    * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
-   *
-   * @see http://processwire.com/apigen/class-Module.html
-   *
    */
   public function ready() {
-    $this->addHookAfter('ProcessPageEdit::execute', $this, 'addSortRepeaterItemsScript');
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'buildTemplatesOnSaveModuleConfigData');
     $this->addHookAfter('ProcessModule::executeEdit', $this, 'moveUninstall');
-  }
-
-  /**
-   * add sort repeater items script
-   *
-   * @param HookEvent $event
-   */
-  public function addSortRepeaterItemsScript(HookEvent $event) {
-    $this->config->scripts->append($this->config->urls->{self::CLASS_NAME} . 'SortRepeaterItems.js');
   }
 
   /**
@@ -405,7 +135,7 @@ EOD;
    *   submitName, templateName, pageName, repeaterName
    *   successMessage, errorMessage, emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages, useTwig
+   *   saveMessages
    *
    * @param array $options
    *
@@ -427,7 +157,7 @@ EOD;
    *   submitName, templateName, pageName, repeaterName
    *   successMessage, errorMessage, emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages, useTwig
+   *   saveMessages
    *
    * @param array $options
    */
@@ -498,9 +228,6 @@ EOD;
         // === general
         case 'saveMessages':
           $this->saveMessages = $this->boolval($value);
-          break;
-        case 'useTwig':
-          $this->useTwig = $this->boolval($value);
           break;
       }
     }
@@ -606,7 +333,6 @@ EOD;
       $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
 
       $wireMail->to(explode(',', trim($this->emailTo)));
-      $wireMail->toName($this->fullName);
       $wireMail->from($this->emailServer);
       $wireMail->subject($this->emailSubject);
       $wireMail->body(trim($this->getMessageContent($this->emailMessage)));
@@ -619,7 +345,7 @@ EOD;
 
       // return success - regardless whether a mail has been sent or not
       $this->input->post->success = $this->successMessage;
-      
+
       // log whether a mail has been sent or not
       if ($numSent) {
         $logmessage = array(
@@ -796,12 +522,7 @@ EOD;
       $singleField = $this->modules->get('InputfieldText');
       $singleField->name = $inputfield;
       $singleField->placeholder = $inputfield;
-
-      if ($this->useTwig) {
-        $singleField->initValue = '{{input.' . $inputfield . '}}';
-      } else {
-        $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
-      }
+      $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
 
       if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
       $form->add($singleField);
@@ -813,7 +534,7 @@ EOD;
     $honeyField->initValue = '';
     $form->add($honeyField);
 
-    $scfDate = ($this->useTwig) ? '{{\'now\'|date(\'U\')}}' : '<?= time(); ?>';
+    $scfDate = '<?= time(); ?>';
     foreach (array('submitted' => '1', 'scf-date' => $scfDate) as $name => $val) {
       // add hidden field to track wheater the form was submitted and to save current timestamp
       $hiddenField = $this->modules->get('InputfieldHidden');
@@ -830,8 +551,8 @@ EOD;
 
     // render form and substitute CSRF Token
     $out = $form->render();
-    $tokenValue = $this->useTwig ? '{{input.tokenValue}}' : '<?= $input->tokenValue; ?>';
-    $tokenName = $this->useTwig ? '{{input.tokenName}}' : '<?= $input->tokenName; ?>';
+    $tokenValue = '<?= $input->tokenValue; ?>';
+    $tokenName = '<?= $input->tokenName; ?>';
     // get token name and count string length after TOKEN
     // look behind does not allow varianble length
     $token = preg_match('/(?<=TOKEN)[\dX]*/', $out, $matches, PREG_OFFSET_CAPTURE);
@@ -868,8 +589,7 @@ EOD;
       $contactTemplate->save();
     }
 
-    $ext = $this->useTwig ? '.twig' : '.php';
-    $tPath = $this->config->paths->templates . $tName . $ext;
+    $tPath = $this->config->paths->templates . $tName . '.php';
     if (!file_exists($tPath)) {
       // add form
       $form = $this->buildForm();
@@ -892,36 +612,19 @@ EOD;
 
   private function getFormTemplateContent($form) {
     // combine template parts
-    if ($this->useTwig) {
-      $content = array(
-        '<div class="">',
-        '{% if input.success %}',
-        '<p class="success scf-state">{{input.success}}</p>',
-        '{% else %}',
-        $form,
-        "\n\n" . '{% if input.error %}',
-        '<p class="error scf-state">{{input.error}}</p>',
-        '{% endif %}',
-        '{% endif %}',
-        '</div>'
-      );
-    } else {
-      $content = array(
-        '<div class="">',
-        '<?php if ($input->success): ?>',
-        '<p class=\'success scf-state\'><?= $input->success; ?></p>',
-        '<?php else: ?>',
-        $form,
-        "\n\n",
-        '<?php if ($input->error): ?>',
-        '<p class=\'error scf-state\'><?= $input->error; ?></p>',
-        '<?php endif; ?>',
-        '<?php endif; ?>',
-        '</div>'
-      );
-    }
-
-    return $content;
+    return array(
+      '<div class="">',
+      '<?php if ($input->success): ?>',
+      '<p class=\'success scf-state\'><?= $input->success; ?></p>',
+      '<?php else: ?>',
+      $form,
+      "\n\n",
+      '<?php if ($input->error): ?>',
+      '<p class=\'error scf-state\'><?= $input->error; ?></p>',
+      '<?php endif; ?>',
+      '<?php endif; ?>',
+      '</div>'
+    );
   }
 
 
@@ -932,27 +635,15 @@ EOD;
     );
 
     foreach ($this->allFieldsExtended as $inputfield) {
-      if ($this->useTwig) {
-        $table['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
+      $table['head'][] = '<th><?= $fields->get("scf_' . $inputfield . '")->label; ?></th>';
 
-        if (in_array($inputfield, $this->emailFields)) {
-          $table['content'][] = '<td><a href="mailto:{{message.scf_' . $inputfield . '}}">{{message.scf_' . $inputfield . '}}</a></td>';
-        } elseif ($inputfield === 'date') {
-          $table['content'][] = '<td>{{message.scf_' . $inputfield . '|date("d.m.Y H:i")}}</td>';
-        } else {
-          $table['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
-        }
+      $input = "scf_{$inputfield}";
+      if (in_array($inputfield, $this->emailFields)) {
+        $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
+      } elseif ($inputfield === 'date') {
+        $table['content'][] = '<td><?= date("d.m.Y H:i", $message->' . $input . '); ?></td>';
       } else {
-        $table['head'][] = '<th><?= $fields->get("scf_' . $inputfield . '")->label; ?></th>';
-
-        $input = "scf_{$inputfield}";
-        if (in_array($inputfield, $this->emailFields)) {
-          $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
-        } elseif ($inputfield === 'date') {
-          $table['content'][] = '<td><?= date("d.m.Y H:i", $message->' . $input . '); ?></td>';
-        } else {
-          $table['content'][] = '<td><?= $message->' . $input . '; ?></td>';
-        }
+        $table['content'][] = '<td><?= $message->' . $input . '; ?></td>';
       }
     }
 
@@ -961,57 +652,29 @@ EOD;
 
   private function getMessagesTemplateContent($table, $templateName, $repeaterName) {
     // combine template parts
-    if ($this->useTwig) {
-      $content = array(
-        '{% if user.hasRole("superuser") %}',
-        '{% set currentPage = pages.findOne("template=' . $templateName . '") %}',
-        '<h1>{{currentPage.title}}</h1>',
-        '<table>',
-        '<thead>',
-        '<tr>',
-        implode("\n", $table['head']),
-        '</tr>',
-        '</thead>',
-        '<tbody>',
-        '{% for message in currentPage.' . $repeaterName . '.find("scf_spamIp=,scf_spamMail=").sort("-scf_date") %}',
-        '<tr>',
-        implode("\n", $table['content']),
-        '</tr>',
-        '{% endfor %}',
-        '</tbody>',
-        '</table>',
-        '{% else %}',
-        '{{session.redirect(pages.get("/").url)}}',
-        '{% endif %}'
-      );
-
-    } else {
-      $content = array(
-        '<?php',
-        'if ($user->hasRole("superuser")):',
-        '$currentPage = $this->pages->findOne("template=\'' . $templateName . '\'"); ?>',
-        '<h1><?= $currentPage->title; ?></h1>',
-        '<table>',
-        '<thead>',
-        '<tr>',
-        implode("\n", $table['head']),
-        '</tr>',
-        '</thead>',
-        '<tbody>',
-        '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message): ?>',
-        '<tr>',
-        implode("\n", $table['content']),
-        '</tr>',
-        '<?php endforeach; ?>',
-        '</tbody>',
-        '</table>',
-        '<?php else: ?>',
-        '<?php $session->redirect($pages->get("/")->url); ?>',
-        '<?php endif; ?>'
-      );
-    }
-
-    return $content;
+    return array(
+      '<?php',
+      'if ($user->hasRole("superuser")):',
+      '$currentPage = $this->pages->findOne("template=\'' . $templateName . '\'"); ?>',
+      '<h1><?= $currentPage->title; ?></h1>',
+      '<table>',
+      '<thead>',
+      '<tr>',
+      implode("\n", $table['head']),
+      '</tr>',
+      '</thead>',
+      '<tbody>',
+      '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message): ?>',
+      '<tr>',
+      implode("\n", $table['content']),
+      '</tr>',
+      '<?php endforeach; ?>',
+      '</tbody>',
+      '</table>',
+      '<?php else: ?>',
+      '<?php $session->redirect($pages->get("/")->url); ?>',
+      '<?php endif; ?>'
+    );
   }
 
   /**
@@ -1056,8 +719,7 @@ EOD;
    * @param string $templateName
    */
   private function createReceivedMessagesTemplate($templateName) {
-    $ext = $this->useTwig ? '.twig' : '.php';
-    $tPath = $this->config->paths->templates . $templateName . $ext;
+    $tPath = $this->config->paths->templates . $templateName . '.php';
     if (!file_exists($tPath)) {
       $table = $this->getTableTemplateContent();
       $content = $this->getMessagesTemplateContent($table, $templateName, $this->repeaterName);
@@ -1167,9 +829,7 @@ EOD;
       $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
       $configDataUpdated = $event->arguments[1];
 
-      $this->useTwig = $this->boolval($configDataUpdated['useTwig']);
-      $ext = $this->useTwig ? '.twig' : '.php';
-      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $ext;
+      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . '.php';
 
       // check whether to save the received messages
       if ($configDataUpdated['saveMessages']) {
@@ -1225,7 +885,7 @@ EOD;
 
       if (!empty($fieldsRemoved)) {
         $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-        $fileExtension =  ($configDataUpdated['useTwig']) ? '.twig' : '.php';
+        $fileExtension =  '.php';
         $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
         $tContent = file_get_contents($t);
 
@@ -1324,18 +984,10 @@ EOD;
           $singleField = $this->modules->get('InputfieldText');
           $singleField->name = $name;
           $singleField->placeholder = $name;
-
-          if ($configDataUpdated['useTwig']) {
-            $singleField->initValue = '{{input.' . $name . '}}';
-            $fileExtension = '.twig';
-            $saveMessages['head'][] = '<th>{{fields.get("scf_' . $inputfield . '").label}}</th>';
-            $saveMessages['content'][] = '<td>{{message.scf_' . $inputfield . '}}</td>';
-          } else {
-            $singleField->initValue = '<?= $input->' . $name . '; ?>';
-            $fileExtension = '.php';
-            $saveMessages['head'][] = '<th><?= $fields->get("scf_' . $name . '")->label; ?></th>';
-            $saveMessages['content'][] = '<td><?= $message->scf_' . $name . '; ?></td>';
-          }
+          $singleField->initValue = '<?= $input->' . $name . '; ?>';
+          $fileExtension = '.php';
+          $saveMessages['head'][] = '<th><?= $fields->get("scf_' . $name . '")->label; ?></th>';
+          $saveMessages['content'][] = '<td><?= $message->scf_' . $name . '; ?></td>';
 
           $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
           if (in_array($name, $requiredFields)) $singleField->required = true;
@@ -1404,24 +1056,6 @@ EOD;
     }
 
     return $bool;
-  }
-
-  /*
-   * add autoload flag
-   */
-  protected function correctFlags() {
-    // mark module as autoload
-    $db = wire('database');
-    $table = $db->escapeTable('modules');
-
-    try {
-      $query = $db->prepare("UPDATE `$table` SET flags=:flags WHERE class=:class");
-      $query->bindValue(":flags", 3);
-      $query->bindValue(":class", self::CLASS_NAME);
-      $query->execute();
-    } catch(Exception $e) {
-      $this->errors($e->getMessage(), Notice::log);
-    }
   }
 
   /*
