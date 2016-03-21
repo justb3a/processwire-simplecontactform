@@ -1,4 +1,4 @@
-<?php
+<?php namespace ProcessWire;
 
 /**
 *
@@ -13,28 +13,14 @@
 * @see http://www.processwire.com
 */
 
+use \Jos\SpamProtection;
+use \Jos\Mailer;
+
 /**
 * Class SimpleContactForm
 */
-class SimpleContactForm extends WireData implements Module, ConfigurableModule {
+class SimpleContactForm extends WireData implements Module {
 
-  /**
-   * string class name
-   */
-  const CLASS_NAME = 'SimpleContactForm';
-
-  /**
-   * string tag name
-   */
-  const TAG_NAME = 'scf';
-
-  /**
-   * Retrieves module meta data
-   * Implementation of the Module interface
-   *
-   * @return array
-   * @see http://processwire.com/apigen/class-Module.html
-   */
   public static function getModuleInfo() {
     return array(
       'title' => 'Simple Contact Form',
@@ -48,23 +34,88 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
+   * string class name
+   */
+  const CLASS_NAME = 'SimpleContactForm';
+
+  /**
+   * string tag name
+   */
+  const TAG_NAME = 'scf';
+
+  /**
+   * Additional fields
+   */
+  static protected $additionalFields = array('date', 'ip', 'template');
+
+  /**
+   * Spam protection fields
+   */
+  static protected $spamFields = array('scf-date', 'scf-website', 'sumbit', 'token');
+
+  /**
+   * Markup used during the render() method
+   */
+  static protected $markup = array(
+    'list' => "{out}\n",
+    'item' => "\n\t<div {attrs}>\n{out}\n\t</div>",
+    'item_label' => "\n\t\t<label class='form__item--label' for='{for}'>{out}</label>",
+    'item_label_hidden' => "\n\t\t<label class='field__header field__header--hidden {class}'>{out}</label>",
+    'item_content' => "{out}",
+    'item_error' => "\n<p class='field--error--message'>{out}</p>",
+    'item_description' => "\n<p class='field__description'>{out}</p>",
+    'item_head' => "\n<h2>{out}</h2>",
+    'item_notes' => "\n<p class='field__notes'>{out}</p>",
+    'item_icon' => "",
+    'item_toggle' => "",
+    // ALSO:
+    // InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
+  );
+
+   /**
+   * Classes used during the render() method
+   */
+  static protected $classes = array(
+    'form' => 'form', // additional clases for inputfieldform (optional)
+    'list' => 'fields',
+    'list_clearfix' => 'clearfix',
+    'item' => 'form__item form__item--{name}',
+    'item_label' => '', // additional classes for inputfieldheader (optional)
+    'item_content' => '',  // additional classes for inputfieldcontent (optional)
+    'item_required' => 'field--required', // class is for inputfield
+    'item_error' => 'field--error', // note: not the same as markup[item_error], class is for inputfield
+    'item_collapsed' => 'field--collapsed',
+    'item_column_width' => 'field__column',
+    'item_column_width_first' => 'field__column--first',
+    'item_show_if' => 'field--show-if',
+    'item_required_if' => 'field--required-if'
+    // ALSO:
+    // InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
+  );
+
+  /**
+   * construct
+   */
+  public function __construct() {
+    // require spam lib
+    require_once(wire('config')->paths->SimpleContactForm . 'lib/SpamProtection.php');
+    require_once(wire('config')->paths->SimpleContactForm . 'lib/Mailer.php');
+
+    // add log file
+    $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
+  }
+
+  /**
    * Initialize the module
    *
    * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
    */
   public function init() {
-    // add log file
-    $this->log = new FileLog($this->config->paths->logs . strtolower(self::CLASS_NAME) . '-log.txt');
-
-    // convert comma separated values to array
     $allFieldsExtended = $this->allFields;
-    foreach (array('date', 'ip', 'template') as $f) $allFieldsExtended[] = $f;
+    foreach (self::$additionalFields as $f) $allFieldsExtended[] = $f;
     $this->allFieldsExtended = $allFieldsExtended;
-
-    $this->templateName = $this->decamelize(self::CLASS_NAME); // @todo: deprecated
-    $this->pageName = 'scf-messages'; // @todo: deprecated
-    $this->repeaterName = 'repeater_scfmessages'; // @todo: deprecated
+    $this->submitName = 'submit';
   }
 
   /**
@@ -74,8 +125,30 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
    */
   public function ready() {
-    $this->addHookBefore('Modules::saveModuleConfigData', $this, 'buildTemplatesOnSaveModuleConfigData');
+    $this->addHookBefore('Modules::saveModuleConfigData', $this, 'createAndAddFieldsOnSaveModuleConfigData');
     $this->addHookAfter('ProcessModule::executeEdit', $this, 'moveUninstall');
+  }
+
+  /**
+   * Set markup
+   *
+   * @param Form $form
+   * @param array $options
+   */
+  private function setMarkup(&$form, $options) {
+    $markup = isset($options['markup']) ? array_merge(self::$markup, $options['markup']) : self::$markup;
+    $form->setMarkup($markup);
+  }
+
+  /**
+   * Set classes
+   *
+   * @param Form $form
+   * @param array $options
+   */
+  private function setClasses(&$form, $options) {
+    $classes = isset($options['classes']) ? array_merge(self::$classes, $options['classes']) : self::$classes;
+    $form->setClasses($classes);
   }
 
   /**
@@ -104,60 +177,123 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-   * check file permissions
+   * Render Form
+   *
+   * @param array $options
    */
-  protected function checkFilePermissions() {
-    $currentMode = substr(sprintf('%o', fileperms($this->config->paths->templates)), -4);
-    if ($currentMode != '0777') {
-      chmod($this->config->paths->templates, 0777);
-      $this->message('Changed mode for ' . $this->config->paths->templates . ' from ' . $currentMode . ' to 0777 to be able to create the necessary template files.');
+  private function renderForm($options) {
+    $form = $this->getForm();
+    $this->setMarkup($form, $options);
+    $this->setClasses($form, $options);
+
+    // on form submit
+    if ($this->input->post->{$this->submitName}) {
+      // process form input and validate fields
+      $form->processInput($this->input->post);
+
+      // anti spam measures
+      if (!$form->getErrors()) {
+        $antiSpam = new SpamProtection();
+        $antiSpam->setCount(count($this->allFields) + count(self::$spamFields));
+        $antiSpam->setTimeRange($this->antiSpamTimeMin, $this->antiSpamTimeMax);
+        $antiSpam->validate();
+
+        // didn't pass spam test
+        if ($antiSpam->isSpam()) {
+          $form->error(sprintf(
+            $this->_("Sorry, but your message didn't pass our %s test. Please prepare another %s."),
+            $antiSpam->getAnimal(),
+            $antiSpam->getFruit()
+          ));
+          $form->appendMarkup .= '<p class="form--error--message">' . $form->getErrors()[0] . '</p>';
+          $d = $form->get('scf-date');
+          $d->attr('value', time());
+        }
+      } else {
+          $form->appendMarkup .= '<p class="form--error--message">' . $this->_('Please verify the data you have entered.') . '</p>';
+      }
+
+      // send mail
+      if (!$form->getErrors()) {
+        $this->sendMail();
+        $text = $this->_('Your contact request has been send successfully!');
+        $out = "<p class='form--success--message'>$text</p>";
+      }
     }
+
+    return isset($out) ? $out : $form->render();
   }
 
   /**
-   * Render Form
+   * Get form
+   *
+   * @param array $options
+   * @return Form
    */
-  private function renderForm() {
-    // set CSRF token name and value
-    $this->input->tokenName  = $this->session->CSRF->getTokenName();
-    $this->input->tokenValue = $this->session->CSRF->getTokenValue();
+  private function getForm($options = array()) {
+    $form = $this->modules->get('InputfieldForm');
 
-    $contactPage = new Page();
-    $contactPage->set('template', $this->templateName);
-    $contactPage->set('parent', $this->page->id);
-    return $contactPage->render();
+    $form->action = './';
+    $form->method = 'post';
+    $form->attr('id+name','contact-form');
+    if (isset($options['prependMarkup'])) $form->prependMarkup = $options['prependMarkup'];
+    if (isset($options['appendMarkup'])) $form->appendMarkup = $options['appendMarkup'];
+
+    // add fields
+    if (is_array($this->allFieldsExtended)) {
+      foreach ($this->allFieldsExtended as $fieldname) {
+        if ($field = $this->fields->get($fieldname)) {
+          $inputfield = $field->getInputfield($this->page);
+          $form->append($inputfield);
+        }
+      }
+    }
+
+    // add honeypot (spam protection)
+    $honeyField = $this->modules->get('InputfieldText');
+    $honeyField->name = 'scf-website';
+    $honeyField->initValue = '';
+    $form->append($honeyField);
+
+    // add hidden field to save current timestamp
+    $field = $this->modules->get('InputfieldHidden');
+    $field->label = 'Date';
+    $field->attr('name+id', 'scf-date');
+    $field->attr('value', time());
+    $field->required = 1;
+    $form->append($field);
+
+    // add a submit button to the form
+    $submit = $this->modules->get('InputfieldSubmit');
+    $submit->name = $this->submitName;
+    $submit->attr('value', __('Send'));
+    $submit->attr('class', 'button');
+    $form->append($submit);
+
+    return $form;
   }
 
   /**
    * Render
    * available keys:
-   *   requiredFields, allFields, emailFields
-   *   submitName, templateName, pageName, repeaterName
+   *   allFields, submitName
    *   successMessage, errorMessage, emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages
+   *   saveMessages, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
-   *
    */
   public function ___render($options = array()) {
-    if ($options) {
-      return $this->renderInstance($options);
-    } else {
-      // validate form and send mail
-      if (!empty($this->input->post->submitted)) $this->sendMail();
-      return $this->renderForm();
-    }
+    return $this->renderInstance($options);
   }
 
   /**
    * Render further instance
    * available keys:
-   *   requiredFields, allFields, emailFields
-   *   submitName, templateName, pageName, repeaterName
+   *   allFields, submitName
    *   successMessage, errorMessage, emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages
+   *   saveMessages, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
    */
@@ -167,29 +303,16 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       switch ($key) {
 
         // === fields
-        case 'requiredFields':
-          $this->requiredFields = explode(',', $value);
-          break;
         case 'allFields':
-          $this->allFieldsExtended = explode(',', $value . ',date,ip,template');
           $this->allFields = explode(',', $value);
-          break;
-        case 'emailFields':
-          $this->emailFields = explode(',', $value);
+          $allFieldsExtended = explode(',', $value);
+          foreach (self::$additionalFields as $f) $allFieldsExtended[] = $f;
+          $this->allFieldsExtended = $allFieldsExtended;
           break;
 
         // === names
         case 'submitName':
-          $submitName = $value;
-        case 'templateName':
-          $this->templateName = $value;
-          break;
-        case 'pageName':
-          $this->pageName = $value;
-          break;
-        case 'repeaterName':
-          $this->repeaterName = $value;
-          break;
+          $this->submitName = $value;
 
         // === messages
         case 'successMessage':
@@ -239,57 +362,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       if (!isset($this->emailAddSubject)) $this->emailAddSubject = $this->emailSubject;
     }
 
-    // on form submit
-    if (isset($submitName)) {
-      if (!empty($this->input->post->submitted) && !empty($this->input->post->{$submitName})) {
-        $this->sendMail();
-      }
-    } elseif (!empty($this->input->post->submitted)) {
-        $this->sendMail();
-    }
-
     // execute render
-    return $this->renderForm();
-  }
-
-  /**
-   * validate Fields
-   *
-   */
-  public function ___validateFields() {
-    $error = false;
-    $log = array();
-    $form = array();
-
-    // first check valid mail address
-    if (!empty($this->emailFields) && is_array($this->emailFields)) {
-      foreach ($this->emailFields as $emailField) {
-        $form[$emailField] = $this->sanitizer->email($this->input->post->{$emailField});
-        if (empty($form[$emailField])) $log[] = "The E-Mail address is invalid.";
-      }
-    }
-
-    // second check required fields
-    foreach ($this->requiredFields as $requiredField) {
-      if (in_array($requiredField, $this->emailFields)) {
-        $form[$requiredField] = $this->sanitizer->email($this->input->post->{$requiredField});
-      } else {
-        $form[$requiredField] = $this->sanitizer->text($this->input->post->{$requiredField});
-      }
-    }
-
-    // validate required/email fields
-    // email fields do not need to be validated here, sanitizer does that already!
-    foreach ($form as $field => $value) {
-      if (empty($value)) {
-        $log[] = "Field $field should not be blank.";
-        $error = true;
-      }
-    }
-
-    if (!empty($log)) $this->log->save('[FAILURE] ' . implode(', ', $log));
-
-    return $error;
+    return $this->renderForm($options);
   }
 
   /**
@@ -300,7 +374,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    */
   private function getMessageContent($text) {
     if (!empty($text)) {
-      $date = new DateTime();
+      $date = new \DateTime();
       if (preg_match('/\%date\%/', $text)) $text = str_replace('%date%', $date->format('Y-m-d H:i:s'), $text);
       preg_match_all('/\%(.*?)\%/', $text, $matches);
 
@@ -312,7 +386,7 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
       foreach ($this->allFields as $inputfield) {
         $message[] = $inputfield . ': ' . $this->sanitizer->textarea($this->input->post->{$inputfield});
       }
-      $date = new DateTime();
+      $date = new \DateTime();
       $message[] = 'Date: ' . $date->format('Y-m-d H:i:s');
       $text = implode("\r\n", $message);
     }
@@ -325,65 +399,56 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    *
    */
   public function ___sendMail() {
-    $this->antiSpam();
-    $error = $this->validateFields();
+    $mail = new Mailer(
+      $this->emailTo,
+      $this->emailServer,
+      $this->emailSubject,
+      trim($this->getMessageContent($this->emailMessage))
+    );
 
-    // no errors - send mail and save message in database
-    if ($error === false) {
-      $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
+    $numSent = $mail->send();
 
-      $wireMail->to(explode(',', trim($this->emailTo)));
-      $wireMail->from($this->emailServer);
-      $wireMail->subject($this->emailSubject);
-      $wireMail->body(trim($this->getMessageContent($this->emailMessage)));
-      $numSent = $wireMail->send();
-
-      // send additional mail
-      if (isset($this->emailAdd) && $this->emailAdd) {
-        $this->sendAdditionalMail();
-      }
-
-      // return success - regardless whether a mail has been sent or not
-      $this->input->post->success = $this->successMessage;
-
-      // log whether a mail has been sent or not
-      if ($numSent) {
-        $logmessage = array(
-          $_SERVER['HTTP_USER_AGENT'],
-          $_SERVER['REMOTE_ADDR'],
-          $this->sanitizer->text($this->emailFields)
-        );
-
-        $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
-      } else {
-        // mail has not been sent
-        $this->log->save("[ERROR] Mail has not been sent to {$this->emailTo}");
-      }
-
-      // edit page - save message
-      if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
-        $page = $this->pages->findOne('template=simple_contact_form_messages');
-        $newEntry = $page->{$this->repeaterName}->getNew();
-
-        foreach ($this->allFields as $inputfield) {
-          $newEntry->{'scf_' . $inputfield} = $this->sanitizer->textarea($this->input->post->{$inputfield});
-        }
-        $date = new DateTime();
-        $newEntry->scf_date = $date->getTimestamp();
-        $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
-        $newEntry->scf_template = $page->template->name;
-
-        $newEntry->save();
-        $page->setOutputFormatting(false);
-        $page->save();
-      }
-
-      // don't send mail twice, deactivate condition
-      $this->input->post->submitted = NULL;
+    // send additional mail
+    if (isset($this->emailAdd) && $this->emailAdd) {
+      $this->sendAdditionalMail();
     }
 
-    // set error message
-    if ($error) $this->input->post->error = $this->errorMessage;
+    // @todo
+    // return success - regardless whether a mail has been sent or not
+    // $this->input->post->success = $this->successMessage;
+
+    // log whether a mail has been sent or not
+    if ($numSent) {
+      $logmessage = array(
+        $_SERVER['HTTP_USER_AGENT'],
+        $_SERVER['REMOTE_ADDR'],
+        // $this->sanitizer->text($this->emailFields) //@todo
+      );
+
+      $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
+    } else {
+      // mail has not been sent
+      $this->log->save("[ERROR] Mail has not been sent to {$this->emailTo}");
+    }
+
+    // @todo
+    // edit page - save message
+    if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
+      // $page = $this->pages->findOne('template=simple_contact_form_messages');
+      // $newEntry = $page->{$this->repeaterName}->getNew();
+      //
+      // foreach ($this->allFields as $inputfield) {
+      //   $newEntry->{'scf_' . $inputfield} = $this->sanitizer->textarea($this->input->post->{$inputfield});
+      // }
+      // $date = new DateTime();
+      // $newEntry->scf_date = $date->getTimestamp();
+      // $newEntry->scf_ip = $_SERVER['REMOTE_ADDR'];
+      // $newEntry->scf_template = $page->template->name;
+      //
+      // $newEntry->save();
+      // $page->setOutputFormatting(false);
+      // $page->save();
+    }
   }
 
   /**
@@ -391,19 +456,20 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    *
    */
   public function ___sendAdditionalMail() {
-    $wireMail = wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
+    $mail = new Mailer(
+      $this->emailAddTo,
+      $this->emailServer,
+      $this->emailAddSubject,
+      trim($this->getMessageContent($this->emailAddMessage))
+    );
 
-    $wireMail->to(explode(',', trim($this->emailAddTo)));
-    $wireMail->from($this->emailServer);
-    $wireMail->subject($this->emailAddSubject);
-    $wireMail->body(trim($this->getMessageContent($this->emailAddMessage)));
-    $numSent = $wireMail->send();
+    $numSent = $mail->send();
 
     if ($numSent) {
         $logmessage = array(
           $_SERVER['HTTP_USER_AGENT'],
           $_SERVER['REMOTE_ADDR'],
-          $this->sanitizer->text($this->emailAddTo)
+          // $this->sanitizer->text($this->emailAddTo) @todo
         );
 
         $this->log->save('[SUCCESS] ' . implode(', ', $logmessage));
@@ -413,556 +479,19 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
   }
 
   /**
-   *  spam protection
-   *
-   */
-  protected function antiSpam() {
-    $spam = false;
-    $bptUserAgents = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
-
-    $dateDiff = 0;
-    if (!empty($this->input->post->{'scf-date'})) {
-      $dateDiff = time() - (int)$this->input->post->{'scf-date'};
-    }
-
-    // first validate CSRF token
-    try {
-      $this->session->CSRF->validate();
-    } catch (WireCSRFException $e) {
-      $spam = true;
-      $this->log->save('[FAILURE] CSRF Token validation failed.');
-    }
-
-    $countFields = count($this->allFields) + (int)$this->antiSpamCountAdditionalInputs;
-    $countInputs = count($this->input->post);
-    if ($this->input->post->error || $this->input->post->success) $countInputs--;
-
-    if ($spam === false) {
-      // always test:
-      if (!empty($this->input->post->{'scf-website'})) {
-        // evaluate honeypot
-        $spam = true;
-        $this->log->save('[FAILURE] Honeypot field was filled.');
-      } elseif ($countFields !== $countInputs) {
-        // check number of fields
-        $spam = true;
-        $this->log->save('[FAILURE] Number of fields does not match.');
-      } elseif (preg_match($bptUserAgents, $_SERVER['HTTP_USER_AGENT'])) {
-        // check HTTP_USER_AGENT
-        $spam = true;
-        $this->log->save('[FAILURE] User Agent is not allowed.');
-      } elseif ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
-        // check HTTP_REFERER und HTTP_USER_AGENT
-        $spam = true;
-        $this->log->save('[FAILURE] User Agent and HTTP Referer are empty.');
-      } elseif ($dateDiff <= $this->antiSpamTimeMin || $dateDiff >= $this->antiSpamTimeMax) {
-        // check date difference
-        $spam = true;
-        $this->log->save('[FAILURE] Date difference is out of range.');
-      }
-
-      // additional checks only if save messages feature is turned on
-      if ($spam === false && $this->saveMessages) {
-        // get all mail addresses marked as spam
-        $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages')->{$this->repeaterName};
-        $currentIp = $_SERVER['REMOTE_ADDR'];
-        $excludeIps = explode(',', $this->antiSpamExcludeIps);
-
-        // get ips and mail addresses marked as spam
-        $spam = array('ips' => array(), 'mails' => array());
-        $spamMailsMsgs = $receivedMessages->find('scf_spamMail!=');
-        $spamIpsMsgs = $receivedMessages->find('scf_spamIp!=');
-        foreach ($spamMailsMsgs as $spamMsg) { $spam['mails'][] = $spamMsg->scf_email; }
-        foreach ($spamIpsMsgs as $spamMsg) { $spam['ips'][] = $spamMsg->scf_ip; }
-
-        if (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
-          // control how often the form is allowed to be submitted by a single IP address
-          $dateSub = new DateTime();
-          $dateSub->sub(new DateInterval('P1D'));
-          $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
-
-          if ($totalLast24h >= $this->antiSpamPerDay) {
-            $spam = true;
-            $this->log->save('[FAILURE] This IP address submitted this form too often.');
-          }
-        } elseif (in_array($currentIp, $spam['ips'])) {
-          // check whether ip was already marked as spam
-          $spam = true;
-          $this->log->save("[FAILURE] This IP address $currentIp was already marked as spam.");
-        } else {
-          foreach ($this->emailFields as $emailField) {
-            if (in_array($this->input->post->{$emailField}, $spam['mails'])) {
-              // check whether mail address was already marked as spam
-              $spam = true;
-              $this->log->save('[FAILURE] This mail address ' . $this->input->post->{$emailField} . ' was already marked as spam.');
-            }
-          }
-        }
-      }
-    }
-
-    if ($spam === true) {
-      $this->session->redirect($this->pages->get('/')->url);
-    }
-  }
-
-  /**
-   * Build the contact form and add fields to it
-   *
-   */
-  protected function buildForm() {
-    // create the contact form
-    $form = $this->modules->get("InputfieldForm");
-    $form->method = 'post';
-    $form->action = './';
-    $form->class = 'js-simple_contact_form';
-
-    // add the fields as simple input fields to the form
-    foreach ($this->allFields as $inputfield) {
-      $singleField = $this->modules->get('InputfieldText');
-      $singleField->name = $inputfield;
-      $singleField->placeholder = $inputfield;
-      $singleField->initValue = '<?= $input->' . $inputfield . '; ?>';
-
-      if (in_array($inputfield, $this->requiredFields)) $singleField->required = true;
-      $form->add($singleField);
-    }
-
-    // add honeypot (spam protection)
-    $honeyField = $this->modules->get('InputfieldText');
-    $honeyField->name = 'scf-website';
-    $honeyField->initValue = '';
-    $form->add($honeyField);
-
-    $scfDate = '<?= time(); ?>';
-    foreach (array('submitted' => '1', 'scf-date' => $scfDate) as $name => $val) {
-      // add hidden field to track wheater the form was submitted and to save current timestamp
-      $hiddenField = $this->modules->get('InputfieldHidden');
-      $hiddenField->name = $name;
-      $hiddenField->initValue = $val;
-      $form->add($hiddenField);
-    }
-
-    // add a submit button
-    $submit = $this->modules->get("InputfieldSubmit");
-    $submit->name = "submit";
-    $submit->value = 'Submit';
-    $form->add($submit);
-
-    // render form and substitute CSRF Token
-    $out = $form->render();
-    $tokenValue = '<?= $input->tokenValue; ?>';
-    $tokenName = '<?= $input->tokenName; ?>';
-    // get token name and count string length after TOKEN
-    // look behind does not allow varianble length
-    $token = preg_match('/(?<=TOKEN)[\dX]*/', $out, $matches, PREG_OFFSET_CAPTURE);
-    $tokenLength = (strlen($matches[0][0]));
-    $out = preg_replace('/((?<=TOKEN[\dX]{' . $tokenLength . '}[\'"]\s(value=)[\'"])[.\/\dA-Za-z]*)/', $tokenValue, $out);
-    $out = preg_replace('/(TOKEN[\dX]{' . $tokenLength . '})/', $tokenName,  $out);
-
-    return $out;
-  }
-
-  /**
-   * create a page for holding the form fields
-   *
-   */
-  protected function createContactPage() {
-    $tName = $this->decamelize(self::CLASS_NAME);
-
-    // create a new template for contactPage - database
-    if (!$this->templates->get($tName) instanceof Template) {
-      // new fieldgroup
-      $fg = new Fieldgroup();
-      $fg->name = $tName;
-      $fg->add($this->fields->get('title')); // needed title field
-      $fg->save();
-
-      $contactTemplate = new Template();
-      $contactTemplate->name = $tName;
-      $contactTemplate->fieldgroup = $fg; // add the fieldgroup
-      $contactTemplate->noChildren = 1;
-      $contactTemplate->slashUrls = 1;
-      $contactTemplate->noPrependTemplateFile = 1;
-      $contactTemplate->noAppendTemplateFile = 1;
-      $contactTemplate->tags = self::TAG_NAME;
-      $contactTemplate->save();
-    }
-
-    $tPath = $this->config->paths->templates . $tName . '.php';
-    if (!file_exists($tPath)) {
-      // add form
-      $form = $this->buildForm();
-      $content = $this->getFormTemplateContent($form);
-
-      // create template file
-      $template = fopen($tPath, 'w');
-      chmod($tPath, 0766);
-      fwrite($template, html_entity_decode(implode("\n", $content), ENT_QUOTES));
-      fclose($template);
-
-      if (!file_exists($tPath)) {
-        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
-      }
-    } else {
-      $contactTemplate = $this->templates->get($tName);
-    }
-  }
-
-
-  private function getFormTemplateContent($form) {
-    // combine template parts
-    return array(
-      '<div class="">',
-      '<?php if ($input->success): ?>',
-      '<p class=\'success scf-state\'><?= $input->success; ?></p>',
-      '<?php else: ?>',
-      $form,
-      "\n\n",
-      '<?php if ($input->error): ?>',
-      '<p class=\'error scf-state\'><?= $input->error; ?></p>',
-      '<?php endif; ?>',
-      '<?php endif; ?>',
-      '</div>'
-    );
-  }
-
-
-  private function getTableTemplateContent() {
-    $table = array(
-      'head' => array(),
-      'content' => array()
-    );
-
-    foreach ($this->allFieldsExtended as $inputfield) {
-      $table['head'][] = '<th><?= $fields->get("scf_' . $inputfield . '")->label; ?></th>';
-
-      $input = "scf_{$inputfield}";
-      if (in_array($inputfield, $this->emailFields)) {
-        $table['content'][] = '<td><a href=\'mailto:<?= $message->' . $input . '; ?>\'><?= $message->' . $input . '; ?></a></td>';
-      } elseif ($inputfield === 'date') {
-        $table['content'][] = '<td><?= date("d.m.Y H:i", $message->' . $input . '); ?></td>';
-      } else {
-        $table['content'][] = '<td><?= $message->' . $input . '; ?></td>';
-      }
-    }
-
-    return $table;
-  }
-
-  private function getMessagesTemplateContent($table, $templateName, $repeaterName) {
-    // combine template parts
-    return array(
-      '<?php',
-      'if ($user->hasRole("superuser")):',
-      '$currentPage = $this->pages->findOne("template=\'' . $templateName . '\'"); ?>',
-      '<h1><?= $currentPage->title; ?></h1>',
-      '<table>',
-      '<thead>',
-      '<tr>',
-      implode("\n", $table['head']),
-      '</tr>',
-      '</thead>',
-      '<tbody>',
-      '<?php foreach ($currentPage->' . $repeaterName . '->find("scf_spamIp=,scf_spamMail=")->sort(\'-scf-date\') as $message): ?>',
-      '<tr>',
-      implode("\n", $table['content']),
-      '</tr>',
-      '<?php endforeach; ?>',
-      '</tbody>',
-      '</table>',
-      '<?php else: ?>',
-      '<?php $session->redirect($pages->get("/")->url); ?>',
-      '<?php endif; ?>'
-    );
-  }
-
-  /**
-   * create a page for holding the received messages
-   *
-   * @param string $templateName
-   */
-  protected function createReceivedMessagesPage($templateName) {
-    // create repeater field
-    $repeaterField = $this->createRepeater();
-
-    // create fieldgroup
-    $fg = new Fieldgroup();
-    $fg->name = $templateName;
-    $fg->add($this->fields->get('title')); // needed title field
-    $fg->add($repeaterField); // needed title field
-    $fg->save();
-
-    // create new template
-    $t = new Template();
-    $t->name = $templateName;
-    $t->fieldgroup = $fg; // add the fieldgroup
-    $t->noChildren = 1;
-    $t->noPrependTemplateFile = 1;
-    $t->noAppendTemplateFile = 1;
-    $t->tags = self::TAG_NAME;
-    $t->save();
-
-    // create page
-    $p = new Page();
-    $p->template = $t;
-    $p->parent = $this->pages->get('/');
-    $p->name = $this->pageName;
-    $p->title = $this->pageName;
-    $p->addStatus(Page::statusHidden);
-    $p->save();
-  }
-
-  /**
-   * create a page for holding the received messages
-   *
-   * @param string $templateName
-   */
-  private function createReceivedMessagesTemplate($templateName) {
-    $tPath = $this->config->paths->templates . $templateName . '.php';
-    if (!file_exists($tPath)) {
-      $table = $this->getTableTemplateContent();
-      $content = $this->getMessagesTemplateContent($table, $templateName, $this->repeaterName);
-
-      // create template file
-      $template = fopen($tPath, 'w');
-      chmod($tPath, 0766);
-      fwrite($template, html_entity_decode(implode("\n", $content)));
-      fclose($template);
-
-      if (!file_exists($tPath)) {
-        throw new WireException('The template file could not be created. Check File Mode for `site/templates` (has to be 0777).');
-      }
-    }
-  }
-
-  /**
-   * Creates a repeater field with associated fieldgroup, template, and page
-   *
-   * @return Returns the new Repeater field
-   *
-   */
-  public function createRepeater() {
-    // create fields for repeater
-    foreach ($this->allFieldsExtended as $name) {
-      $f = new Field();
-      $f->type = $this->modules->get('FieldtypeText');
-      $f->name = 'scf_' . $name;
-      $f->label = 'SCF - ' . ucfirst($name);
-      $f->tags = self::TAG_NAME;
-      $f->columnWidth = '25';
-      $f->save();
-    }
-
-    foreach (array('spamIp', 'spamMail') as $name) {
-      preg_match('/[A-Z].*$/', $name, $matches, PREG_OFFSET_CAPTURE );
-
-      $f = new Field();
-      $f->type = $this->modules->get('FieldtypeCheckbox');
-      $f->name = 'scf_' . $name;
-      $f->label = 'Add ' . $matches[0][0] . ' to spam list';
-      $f->tags = self::TAG_NAME;
-      $f->columnWidth = '100';
-      $f->save();
-    }
-
-    $allFields = $this->allFieldsExtended;
-    $allFields[] = 'spamIp';
-    $allFields[] = 'spamMail';
-
-    // create field
-    $repeaterField = new Field();
-    $repeaterField->type = $this->modules->get("FieldtypeRepeater");
-    $repeaterField->name = $this->repeaterName;
-    $repeaterField->label = 'SCF - ' . $this->repeaterName;
-    $repeaterField->tags = self::TAG_NAME;
-    $repeaterField->repeaterReadyItems = 3;
-
-    // create fieldgroup
-    $repeaterFg = new Fieldgroup();
-    $repeaterFg->name = 'repeater_' . $this->repeaterName;
-
-    // add fields to fieldgroup
-    foreach ($allFields as $field) {
-      $repeaterFg->append($this->fields->get('scf_' . $field));
-    }
-    $repeaterFg->save();
-
-    // create template
-    $repeaterT = new Template();
-    $repeaterT->name = 'repeater_' . $this->repeaterName;
-    $repeaterT->noChildren = 1;
-    $repeaterT->noParents = 1;
-    $repeaterT->noGlobal = 1;
-    $repeaterT->slashUrls = 1;
-    $repeaterT->flags = 8;
-    $repeaterT->tags = self::TAG_NAME;
-    $repeaterT->fieldgroup = $repeaterFg;
-
-    $repeaterT->save();
-
-    // setup page for the repeater
-    $repeaterPage = 'for-field-' . $repeaterField->id;
-    $repeaterField->parent_id = $this->pages->get('name=' . $repeaterPage)->id;
-    $repeaterField->template_id = $repeaterT->id;
-    $repeaterField->repeaterReadyItems = 3;
-
-    // now, add the fields directly to the repeater field
-    foreach ($allFields as $field) {
-      $repeaterField->repeaterFields = $this->fields->get('scf_' . $field);
-    }
-
-    $repeaterField->save();
-
-    return $repeaterField;
-  }
-
-  /**
-   * Hook
+   * Hook create and add template fields
    *
    * @param HookEvent $event
    */
-  public function buildTemplatesOnSaveModuleConfigData(HookEvent $event) {
-    $this->checkFilePermissions();
-
+  public function createAndAddFieldsOnSaveModuleConfigData(HookEvent $event) {
     if ($event->arguments[0] === self::CLASS_NAME) {
-      $configDataUntilNow = $this->modules->getModuleConfigData(self::CLASS_NAME);
-      $configDataUpdated = $event->arguments[1];
+      $configData = $event->arguments[1];
 
-      $tPath = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . '.php';
+      if ($newFields = $configData['addFields']) {
+        $allFields = $configData['allFields'];
 
-      // check whether to save the received messages
-      if ($configDataUpdated['saveMessages']) {
-        $tName = $this->decamelize(self::CLASS_NAME . 'Messages');
-
-        if (!$this->templates->get($tName) instanceof Template) {
-          $this->createReceivedMessagesPage($tName);
-        } else {
-          $this->addTemplateField();
-        }
-
-        $this->createReceivedMessagesTemplate($tName);
-      }
-
-      // check for existing template
-      if (!file_exists($tPath)) {
-        // create new template
-        $this->createContactPage();
-      } else {
-        // update existing template - remove fields
-        $configDataDiffRemove = array_diff($configDataUntilNow, $configDataUpdated);
-        if (!empty($configDataDiffRemove)) {
-          $this->removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffRemove);
-        }
-
-        // update existing template - add fields
-        $configDataDiffAdd = array_diff($configDataUpdated, $configDataUntilNow);
-        if (!empty($configDataDiffAdd)) {
-          $this->addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiffAdd);
-        }
-      }
-    }
-  }
-
-  /*
-   * remove fields from an existing contact form template
-   *
-   * @param array $configDataUntilNow
-   * @param array $configDataUpdated
-   * @param array $configDataDiff
-   */
-  protected function removeFieldsFromExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
-    // check messages - success and error
-    if (array_key_exists('allFields', $configDataDiff)) {
-      // check for new fields
-      $fieldsUpdated = explode(',', preg_replace('/\s+/', '', $configDataUpdated['allFields']));
-      $fieldsRemoved = array();
-      foreach (explode(',', preg_replace('/\s+/', '', $configDataDiff['allFields'])) as $field) {
-        if (!array_key_exists($field, array_flip($fieldsUpdated))) {
-          $fieldsRemoved[] = $field;
-        }
-      }
-
-      if (!empty($fieldsRemoved)) {
-        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-        $fileExtension =  '.php';
-        $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
-        $tContent = file_get_contents($t);
-
-        // append new fields and header in save messages template
-        // first check if save message setting is on
-        if (!empty($configDataUpdated['saveMessages'])) {
-          $tMessages = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME . 'Messages') . $fileExtension;
-          $tMContent = file_get_contents($tMessages);
-        }
-
-        // yeah, there are some fields to remove
-        foreach ($fieldsRemoved as $key => $name) {
-          // REAL FIELD INCLUDING TABLE
-          // check for existing table
-          if (!is_null($this->fields->get('scf_' . $name))) {
-            if (!is_null($repeaterFg->getField('scf_' . $name))) {
-              $repeaterFg->remove($this->fields->get('scf_' . $name));
-            }
-          }
-
-          // HTML OUTPUT
-          // remove just label and input, you have to remove additional markup manually
-          $split = preg_split('/(<label).*(for=[\'"]).*(' . $name . '[\'"])(>).*(<\/label>)/', $tContent);
-          if (count($split) > 1) $tContent = implode('', $split);
-          $split = preg_split('/(<input).*(name=[\'"]' . $name . '[\'"]).*(\/>)/', $tContent);
-          $tContent = implode('', $split);
-
-          if (!empty($configDataUpdated['saveMessages'])) {
-            // remove table header and content for specific field
-            $tMContent = preg_replace('/(<)(th|td)(>).*(scf_' . $name . ').*(<\/)(th|td)(>)/', '', $tMContent);
-          }
-        }
-
-        $repeaterFg->save();
-
-        $template = fopen($t, 'w');
-        chmod($t, 0766);
-        fwrite($template, html_entity_decode($tContent));
-        fclose($template);
-
-        $templateM = fopen($tMessages, 'w');
-        chmod($tMessages, 0766);
-        fwrite($templateM, html_entity_decode($tMContent));
-        fclose($templateM);
-      }
-    }
-  }
-
-  /*
-   * add fields to an existing contact form template
-   *
-   * @param array $configDataUntilNow
-   * @param array $configDataUpdated
-   * @param array $configDataDiff
-   */
-  protected function addFieldsToExistingTemplate($configDataUntilNow, $configDataUpdated, $configDataDiff) {
-    // check messages - success and error
-    if (array_key_exists('allFields', $configDataDiff)) {
-      // check for new fields
-      $fieldsUntilNow = explode(',', preg_replace('/\s+/', '', $configDataUntilNow['allFields']));
-      $fieldsNew = array();
-      foreach (explode(',', preg_replace('/\s+/', '', $configDataDiff['allFields'])) as $field) {
-        if (!array_key_exists($field, array_flip($fieldsUntilNow))) {
-          $fieldsNew[] = $field;
-        }
-      }
-
-      if (!empty($fieldsNew)) {
-        $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-        $inputfields = new InputfieldWrapper();
-        $saveMessages = array('head' => array(), 'content' => array());
-
-        // yeah, there are some new fields to add
-        foreach ($fieldsNew as $key => $name) {
-          // REAL FIELD INCLUDING TABLE
-          // check for existing table
-          if (is_null($this->fields->get('scf_' . $name))) {
+        foreach (explode(',', $newFields) as $name) {
+          if (is_null($this->fields->get("scf_$name"))) {
             $f = new Field();
             $f->type = $this->modules->get('FieldtypeText');
             $f->name = 'scf_' . $name;
@@ -970,64 +499,14 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
             $f->tags = self::TAG_NAME;
             $f->columnWidth = '25';
             $f->save();
-
-            if (is_null($repeaterFg->getField('scf_' . $name))) {
-              if (is_null($this->fields->get('scf_spamIp'))) {
-                $repeaterFg->append($f);
-              } else {
-                $repeaterFg->insertBefore($f, $this->fields->get('scf_spamIp'));
-              }
-            }
           }
 
-          // HTML OUTPUT
-          $singleField = $this->modules->get('InputfieldText');
-          $singleField->name = $name;
-          $singleField->placeholder = $name;
-          $singleField->initValue = '<?= $input->' . $name . '; ?>';
-          $fileExtension = '.php';
-          $saveMessages['head'][] = '<th><?= $fields->get("scf_' . $name . '")->label; ?></th>';
-          $saveMessages['content'][] = '<td><?= $message->scf_' . $name . '; ?></td>';
-
-          $requiredFields = explode(',', preg_replace('/\s+/', '', $configDataUpdated['requiredFields']));
-          if (in_array($name, $requiredFields)) $singleField->required = true;
-          $inputfields->add($singleField);
+          if (!in_array("scf_$name", $allFields)) $allFields[] = "scf_$name";
         }
 
-        $repeaterFg->save();
-
-        // prepend new fields in contact template
-        $t = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME) . $fileExtension;
-        $tContent = file_get_contents($t);
-        $split = preg_split('/(<form).*(>)/', $tContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
-        if (is_array($split) && is_array(end($split)) && array_key_exists(1, end($split))) {
-          $endSplit = end($split);
-          $newContent = substr_replace($tContent, $inputfields->render(), $endSplit[1], 0);
-
-          $template = fopen($t, 'w');
-          chmod($t, 0766);
-          fwrite($template, html_entity_decode($newContent));
-          fclose($template);
-        }
-
-        // append new fields and header in save messages template
-        // first check if save message setting is on
-        if (!empty($configDataUpdated['saveMessages'])) {
-          $tMessages = $this->config->paths->templates . $this->decamelize(self::CLASS_NAME . 'Messages') . $fileExtension;
-          $tMContent = file_get_contents($tMessages);
-          $splitM = preg_split('/(<\/tr>)/', $tMContent, NULL, PREG_SPLIT_OFFSET_CAPTURE);
-
-          if (!empty($splitM)) {
-            // insert first content to maintain (int)start
-            $newMContent = substr_replace($tMContent, implode("\n", $saveMessages['content']) . "\n", $splitM[2][1] - 5, 0);
-            $newMContent = substr_replace($newMContent, implode("\n", $saveMessages['head']) . "\n", $splitM[1][1] - 5, 0);
-          }
-
-          $templateM = fopen($tMessages, 'w');
-          chmod($tMessages, 0766);
-          fwrite($templateM, html_entity_decode($newMContent));
-          fclose($templateM);
-        }
+        $configData['allFields'] = $allFields;
+        $configData['addFields'] = '';
+        $event->setArgument(1, $configData);
       }
     }
   }
@@ -1056,28 +535,6 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
     }
 
     return $bool;
-  }
-
-  /*
-   * add template field - save template
-   */
-  protected function addTemplateField() {
-    $name = 'template';
-    if (is_null($this->fields->get("scf_$name"))) {
-      $f = new Field();
-      $f->type = $this->modules->get('FieldtypeText');
-      $f->name = "scf_$name";
-      $f->label = 'SCF - ' . ucfirst($name);
-      $f->tags = self::TAG_NAME;
-      $f->columnWidth = '25';
-      $f->save();
-
-      $repeaterField = $this->fields->get($this->repeaterName);
-
-      $repeaterFg = $this->fieldgroups->get('repeater_' . $this->repeaterName);
-      $repeaterFg->append($this->fields->get('scf_' . $name));
-      $repeaterFg->save();
-    }
   }
 
   /**
@@ -1128,8 +585,8 @@ class SimpleContactForm extends WireData implements Module, ConfigurableModule {
    * install routine
    */
   public function ___install() {
-    $this->checkFilePermissions();
     wire('modules')->saveModuleConfigData($this, self::$defaults);
   }
+
 
 }
