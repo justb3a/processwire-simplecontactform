@@ -15,7 +15,9 @@ class SimpleContactFormConfig extends ModuleConfig {
       'emailMessage' => '',
       'emailServer' => 'noreply@server.com',
       'allFields' => '',
-      'saveMessages' => true,
+      'saveMessages' => false,
+      'saveMessagesParent' => false,
+      'saveMessagesScheme' => '',
       'antiSpamTimeMin' => '1',
       'antiSpamTimeMax' => '90',
       'antiSpamPerDay' => '3',
@@ -65,16 +67,6 @@ EOD;
     $fieldset = $this->modules->get('InputfieldFieldset');
     $fieldset->label = __('General');
 
-    // save messages field
-    $field = $this->modules->get('InputfieldCheckbox');
-    $field->name = 'saveMessages';
-    $field->label = __('Save Messages');
-    $field->description = __('Should the messages be saved?');
-    $field->value = 1;
-    $field->attr('checked', $saveMessages ? 'checked' : '');
-    $field->columnWidth = 50;
-    $fieldset->add($field);
-
     // field email subject
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailSubject';
@@ -98,6 +90,43 @@ EOD;
     $field->description = __('Server address.');
     $field->notes = __('Scheme: "FromName <noreply@mail.com>"');
     $field->columnWidth = 50;
+    $fieldset->add($field);
+
+    // save messages field
+    $field = $this->modules->get('InputfieldCheckbox');
+    $field->name = 'saveMessages';
+    $field->label = __('Save Messages');
+    $field->description = __('Should the messages be saved?');
+    $field->value = 1;
+    $field->attr('checked', $saveMessages ? 'checked' : '');
+    $field->columnWidth = 50;
+    $fieldset->add($field);
+
+    // save messages parent field
+    $field = $this->modules->get('InputfieldPageListSelect');
+    $field->name = 'saveMessagesParent';
+    $field->label = __('Select a parent for items');
+    $field->description = __('All items created and managed will live under the parent you select here.');
+    $field->notes = __('If no parent is selected, then items will be placed as children of the root page (not recommended).');
+    $field->required = 1;
+    $field->requiredIf = 'saveMessages=1';
+    $field->showIf = 'saveMessages=1';
+    $field->columnWidth = 50;
+    $fieldset->add($field);
+
+    // save messages name scheme
+    $field = $this->modules->get('InputfieldAsmSelect');
+    $field->description = __('Add all fields (choose from existing ones, you may have to add them first below and save) which should be used as part of the page name.');
+    $field->addOption('', '');
+    $field->label = __('Select name fields');
+    $field->attr('name', 'saveMessagesScheme');
+    $field->showIf = 'saveMessages=1';
+    $field->columnWidth = 50;
+    foreach ($allFields as $aField) {
+      $f = $this->fields->get($aField);
+      $field->addOption($f->name, $f->name);
+    }
+    // $field->attr('value', $allFields);
     $fieldset->add($field);
 
     $inputfields->add($fieldset);
