@@ -63,7 +63,7 @@ ByeBye
 
 This module creates a log file named **simplecontactform-log.txt**.
 
-In this file every action is logged marked with ```[SUCCESS]``` or ```[FAILURE]``` 
+In this file every action is logged and marked with ```[SUCCESS]``` or ```[FAILURE]``` 
 
 If a message is treated as spam an entry in the spam log file will be added containing the reason why.
 
@@ -73,9 +73,9 @@ If a message is treated as spam an entry in the spam log file will be added cont
 
 ## Mark messages as spam
 
-If the save messages setting is turned on you have the possibility to mark received messages as spam by adding the ip address to a blacklist.
+If the save messages setting is turned on you have the possibility to mark received messages as spam by adding the IP address to a blacklist.
 
-To mark a message as spam edit the belonging page. Each page has a checkbox to matk the ip address as spam.
+To mark a message as spam edit the belonging page. Each page has a checkbox to matk the IP address as spam.
 
 
 
