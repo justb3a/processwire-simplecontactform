@@ -3,7 +3,7 @@
 Just a simple contact form including spam protection.
 See [ProcessWire Forums - Support Board](https://processwire.com/talk/topic/8254-simple-contact-form-optional-twig-support/).
 
-**TL;TR:**  
+**Too long to read:**  
 Install the module, fill in module settings, execute the module: `echo $modules->get('SimpleContactForm')->render();`.
 
 ## Module Settings
