@@ -1,5 +1,8 @@
 <?php namespace ProcessWire;
 
+use \Jos\SpamProtection;
+use \Jos\Mailer;
+
 /**
 *
 * SimpleContactForm
@@ -13,14 +16,16 @@
 * @see http://www.processwire.com
 */
 
-use \Jos\SpamProtection;
-use \Jos\Mailer;
-
 /**
 * Class SimpleContactForm
 */
 class SimpleContactForm extends WireData implements Module {
 
+  /**
+   * Get module information
+   *
+   * @return array
+   */
   public static function getModuleInfo() {
     return array(
       'title' => 'Simple Contact Form',
@@ -37,6 +42,16 @@ class SimpleContactForm extends WireData implements Module {
    * string class name
    */
   const CLASS_NAME = 'SimpleContactForm';
+
+  /**
+   * string template name
+   */
+  const TEMPLATE_NAME = 'simple_contact_form';
+
+  /**
+   * string template name for save messages
+   */
+  const SM_TEMPLATE_NAME = 'simple_contact_form_messages';
 
   /**
    * string tag name
@@ -76,7 +91,7 @@ class SimpleContactForm extends WireData implements Module {
    * Classes used during the render() method
    */
   static protected $classes = array(
-    'form' => 'form', // additional clases for inputfieldform (optional)
+    'form' => 'form  js-simplecontactform', // additional clases for inputfieldform (optional)
     'list' => 'fields',
     'list_clearfix' => 'clearfix',
     'item' => 'form__item form__item--{name}',
@@ -126,7 +141,6 @@ class SimpleContactForm extends WireData implements Module {
    */
   public function ready() {
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'createAndAddFieldsOnSaveModuleConfigData');
-    $this->addHookAfter('ProcessModule::executeEdit', $this, 'moveUninstall');
   }
 
   /**
@@ -152,34 +166,10 @@ class SimpleContactForm extends WireData implements Module {
   }
 
   /**
-   * move uninstall checkbox into fieldset
-   * and remove state collapsed
-   *
-   * @param HookEvent $event
-   */
-  public function moveUninstall(HookEvent $event) {
-    $return = $event->return;
-
-    if (isset($_POST['name'])) $moduleName = $_POST['name'];
-      else if (isset($_GET['name'])) $moduleName = $_GET['name'];
-
-    $moduleName = $this->sanitizer->name($moduleName);
-    if (
-      $moduleName === self::CLASS_NAME &&
-      preg_match('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', $return, $matches, PREG_OFFSET_CAPTURE)
-    ) {
-      $move = preg_replace('/collapsed\d\sInputfieldStateCollapsed/', '', $matches[0][0]);
-      $return = preg_replace('/(<li[^>]*wrap_uninstall.*?>).*?(<\/li>)/s', '', $return);
-      $offset = $matches[0][1] - strlen($return);
-      $pos = strrpos($return, '</ul>', $offset);
-      $event->return = substr_replace($return, $move, $pos, 0);
-    }
-  }
-
-  /**
    * Render Form
    *
    * @param array $options
+   * @return string
    */
   private function renderForm($options) {
     $form = $this->getForm();
@@ -190,21 +180,25 @@ class SimpleContactForm extends WireData implements Module {
     if ($this->input->post->{$this->submitName}) {
       // process form input and validate fields
       $form->processInput($this->input->post);
-      $this->processValidation();
+      $this->processValidation($form);
 
       // anti spam measures
       if (!$form->getErrors()) {
-        $antiSpam = new SpamProtection();
-        $antiSpam->setCount(count($this->allFields) + count(self::$spamFields));
-        $antiSpam->setTimeRange($this->antiSpamTimeMin, $this->antiSpamTimeMax);
-        $antiSpam->validate();
+        $spamProtector = new SpamProtection();
+        $spamProtector
+          ->setCount(count($this->allFields) + count(self::$spamFields))
+          ->setTimeRange($this->antiSpamTimeMin, $this->antiSpamTimeMax)
+          ->setSaveMessages($this->saveMessages)
+          ->setExcludeIpAdresses($this->antiSpamExcludeIps)
+          ->setNumberOfSubmitsPerDay($this->antiSpamPerDay)
+          ->validate();
 
         // didn't pass spam test
-        if ($antiSpam->isSpam()) {
+        if ($spamProtector->isSpam()) {
           $form->error(sprintf(
             $this->_("Sorry, but your message didn't pass our %s test. Please prepare another %s."),
-            $antiSpam->getAnimal(),
-            $antiSpam->getFruit()
+            $spamProtector->getAnimal(),
+            $spamProtector->getFruit()
           ));
           $form->appendMarkup .= '<p class="form--error--message">' . $form->getErrors()[0] . '</p>';
           $d = $form->get('scf-date');
@@ -279,11 +273,12 @@ class SimpleContactForm extends WireData implements Module {
    * Render
    * available keys:
    *   allFields, submitName
-   *   successMessage, errorMessage, emailMessage, emailAddMessage
+   *   emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages, markup, classes, prependMarkup, appendMarkup
+   *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
+   * @return string
    */
   public function ___render($options = array()) {
     return $this->renderInstance($options);
@@ -293,11 +288,12 @@ class SimpleContactForm extends WireData implements Module {
    * Render further instance
    * available keys:
    *   allFields, submitName
-   *   successMessage, errorMessage, emailMessage, emailAddMessage
+   *   emailMessage, emailAddMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
-   *   saveMessages, markup, classes, prependMarkup, appendMarkup
+   *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
+   * @return string
    */
   private function renderInstance($options) {
     // overwrite module config settings
@@ -353,6 +349,10 @@ class SimpleContactForm extends WireData implements Module {
         case 'saveMessages':
           $this->saveMessages = $this->boolval($value);
           break;
+
+        case 'saveMessagesParent':
+          $this->saveMessagesParent = $value;
+          break;
       }
     }
 
@@ -368,7 +368,7 @@ class SimpleContactForm extends WireData implements Module {
   }
 
   /**
-   * get mail message content
+   * Get mail message content
    *
    * @param string $text
    * @return string
@@ -441,7 +441,7 @@ class SimpleContactForm extends WireData implements Module {
     $pageName = implode(' ', $name);
 
     $p = new Page();
-    $p->template = $this->decamelize(self::CLASS_NAME) . '_messages';
+    $p->template = self::SM_TEMPLATE_NAME;
     $p->parent = wire('pages')->get($this->saveMessagesParent);
     $p->name = $this->sanitizer->pageName($pageName, true);
     $p->title = $pageName;
@@ -485,10 +485,9 @@ class SimpleContactForm extends WireData implements Module {
   public function createAndAddFieldsOnSaveModuleConfigData(HookEvent $event) {
     if ($event->arguments[0] === self::CLASS_NAME) {
       $configData = $event->arguments[1];
-      $tName = $this->decamelize(self::CLASS_NAME) . '_messages';
 
       // saveMessages enabled? create template if it doesn't exist
-      $fg = $configData['saveMessages'] ? $this->createSaveMessagesTemplate($configData, $tName) : null;
+      $fg = $configData['saveMessages'] ? $this->createSaveMessagesTemplate($configData) : null;
 
       // get fields
       if ($configData['addFields']) {
@@ -497,10 +496,16 @@ class SimpleContactForm extends WireData implements Module {
       }
 
       // cleanup, update from 0.x to 1.x @todo: deprecated
-      $this->upgradeItems($tName, $fg, $configData);
+      $this->upgradeItems($fg, $configData);
     }
   }
 
+  /**
+   * Add new fields
+   *
+   * @param array $configData
+   * @param Fieldgroup $fg
+   */
   protected function addNewFields(&$configData, $fg) {
     $newFields = $configData['addFields'];
     $allFields = $configData['allFields'];
@@ -529,19 +534,25 @@ class SimpleContactForm extends WireData implements Module {
     $configData['addFields'] = '';
   }
 
-  protected function createSaveMessagesTemplate($configData, $tName) {
-    if ($template = $this->templates->get($tName)) {
+  /**
+   * Create save messages template
+   *
+   * @param array $configData
+   * @return Fieldgroup
+   */
+  protected function createSaveMessagesTemplate($configData) {
+    if ($template = $this->templates->get(self::SM_TEMPLATE_NAME)) {
       $fg = $template->fieldgroup; // get existing fieldgroup
     } else {
       // new fieldgroup
       $fg = new Fieldgroup();
-      $fg->name = $tName;
+      $fg->name = self::SM_TEMPLATE_NAME;
       $fg->add($this->fields->get('title')); // needed title field
       $fg->save();
 
       // new template
       $template = new Template();
-      $template->name = $tName;
+      $template->name = self::SM_TEMPLATE_NAME;
       $template->fieldgroup = $fg; // add the fieldgroup
       $template->slashUrls = 1;
       $template->noPrependTemplateFile = 1;
@@ -605,11 +616,16 @@ class SimpleContactForm extends WireData implements Module {
       $fg->save();
     }
 
-    $this->validateParent($configData, $tName);
+    $this->validateParent($configData);
     return $fg;
   }
 
-  protected function validateParent($configData, $tName) {
+  /**
+   * Validate parent page
+   *
+   * @param array $configData
+   */
+  protected function validateParent($configData) {
     // add default for save messages parent
     if (!$configData['saveMessagesParent']) $configData['saveMessagesParent'] = $this->config->rootPageID;
     // check if selected parent allows children
@@ -621,12 +637,18 @@ class SimpleContactForm extends WireData implements Module {
       // if childTemplates is set, it must contain parent->template->id
       $this->log->error(sprintf(
         $this->_("Please choose another parent or change the belonging template. AllowedTemplates must include `%s` template."),
-        $tName
+        self::SM_TEMPLATE_NAME
       ));
     }
   }
 
-  protected function upgradeItems($tName, $fg, $configData) {
+  /**
+   * Validate parent page
+   *
+   * @param Fieldgroup $fg
+   * @param array $configData
+   */
+  protected function upgradeItems($fg, $configData) {
     if ($this->fields->get('repeater_scfmessages') && $configData['saveMessages']) {
       // first: add fields to template
       foreach ($this->allFields as $f) {
@@ -635,7 +657,7 @@ class SimpleContactForm extends WireData implements Module {
       }
 
       // second: repater items to pages
-      foreach ($this->pages->get("template=$tName")->repeater_scfmessages as $item) {
+      foreach ($this->pages->get('template=' . self::SM_TEMPLATE_NAME)->repeater_scfmessages as $item) {
         if (!$item->scf_date) continue;
 
         $name = array($item->created);
@@ -649,7 +671,7 @@ class SimpleContactForm extends WireData implements Module {
         if ($this->pages->find('name=' . $this->sanitizer->pageName($pageName, true))->count() > 0) continue;
 
         $p = new Page();
-        $p->template = $tName;
+        $p->template = self::SM_TEMPLATE_NAME;
         $p->parent = wire('pages')->get($configData['saveMessagesParent']);
         $p->name = $this->sanitizer->pageName($pageName, true);
         $p->title = $pageName;
@@ -667,21 +689,12 @@ class SimpleContactForm extends WireData implements Module {
       $fg->remove($this->fields->get('repeater_scfmessages'));
       $fg->save();
       $this->fields->delete($this->fields->get('repeater_scfmessages'));
-      $this->templates->delete($this->templates->get($this->decamelize(self::CLASS_NAME)));
+      $this->templates->delete($this->templates->get(self::TEMPLATE_NAME));
     }
   }
 
-  /*
-   * decamelize - CamelCase to lower_case_and_underscore
-   *
-   * @param string $word
-   */
-  public function decamelize($word) {
-    return strtolower(preg_replace('/(?!^)[[:upper:]]+/', '_$0', $word));
-  }
-
   /**
-   * get the boolean value of a variable
+   * Get the boolean value of a variable
    *
    * @param $val
    */
@@ -701,50 +714,15 @@ class SimpleContactForm extends WireData implements Module {
    * Hookable method called after the form was processed
    * Allows custom/extra validation and field manipulation
    */
-  protected function ___processValidation() {}
+  protected function ___processValidation($form) {}
 
-    /**
-     * called only when the module is uninstalled
-     * this should return the site to the same state it was in before the module was installed
-     *
-     * @access public
-     */
-    public function ___uninstall() {
-      // first check whether to clean up everything
-      if ($this->boolval($this->input->post->cleanup)) {
-        // delete pages
-        $page = $this->pages->get('template=' . $this->decamelize(self::CLASS_NAME . 'Messages'));
-        if ($page->id) $page->delete();
-
-        // delete templates
-        $templates = $this->templates->find('tags=' . self::TAG_NAME . '|name=repeater_scfmessages');
-        foreach ($templates as $template) {
-          if ($template->id) {
-            if ($this->config->templateExtension === 'php') {
-              $fileWithOtherExt = preg_replace('/php$/', 'twig', $template->filename);
-            } else {
-              $fileWithOtherExt = preg_replace('/twig$/', 'php', $template->filename);
-            }
-
-            if (file_exists($template->filename)) unlink($template->filename);
-            if (file_exists($fileWithOtherExt)) unlink($fileWithOtherExt);
-
-            $template->flags = Template::flagSystemOverride;
-            $template->flags = 0; // all flags now removed, can be deleted
-            $this->templates->delete($template);
-
-            // delete fieldgroups
-            $fg = $this->fieldgroups->get($template->name);
-            if ($fg->id) $this->fieldgroups->delete($fg);
-          }
-        }
-
-        // delete fields
-        foreach ($this->fields->find('name^=scf_|repeater_scfmessages') as $field) {
-          if ($field->id) $this->fields->delete($field);
-        }
-      }
-    }
+  /**
+   * Called only when the module is uninstalled
+   * this should return the site to the same state it was in before the module was installed
+   *
+   * @access public
+   */
+  public function ___uninstall() {}
 
   /**
    * install routine

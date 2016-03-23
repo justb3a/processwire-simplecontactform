@@ -18,6 +18,11 @@ class Mailer extends \ProcessWire\Wire {
 
   /**
    * construct
+   *
+   * @param string $to
+   * @param string $from
+   * @param string $subject
+   * @param string $body
    */
   public function __construct($to, $from, $subject, $body) {
     $this->subject = $subject;
@@ -34,6 +39,13 @@ class Mailer extends \ProcessWire\Wire {
 
   }
 
+  /**
+   * extract email from name
+   * substitute umlaute
+   *
+   * @param string $email
+   * @return array
+   */
   protected function extractEmailAndName($email) {
     $name = '';
     if (strpos($email, '<') !== false && strpos($email, '>') !== false) {
@@ -51,6 +63,11 @@ class Mailer extends \ProcessWire\Wire {
     return array($email, $name);
   }
 
+  /**
+   * send mail
+   *
+   * @return boolean
+   */
   public function send() {
     $wireMail = \ProcessWire\wireMail(); // don't use `new WireMail()` which bypasses WireMailSMTP
 

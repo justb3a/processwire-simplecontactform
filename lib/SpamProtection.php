@@ -1,6 +1,6 @@
 <?php namespace Jos;
 
-use \ProcessWire\SimpleContactForm;
+use \ProcessWire\SimpleContactForm as SCF;
 
  /**
  * Class SpamProtection
@@ -16,6 +16,9 @@ use \ProcessWire\SimpleContactForm;
  */
 class SpamProtection extends \ProcessWire\Wire {
 
+  /**
+   * User agents marked as spam
+   */
   const USER_AGENTS = '#w3c|google|slurp|msn|yahoo|y!j|altavista|ask|spider|search|bot|crawl|usw#i';
 
   /**
@@ -23,6 +26,9 @@ class SpamProtection extends \ProcessWire\Wire {
    */
   protected static $isSpam = false;
 
+  /**
+   * Error messages used in log file
+   */
   protected static $errorMessages = array(
     'default' => 'An error occured.',
     'token' => 'CSRF Token validation failed.',
@@ -30,9 +36,15 @@ class SpamProtection extends \ProcessWire\Wire {
     'numberOfFields' => 'Number of fields does not match.',
     'userAgent' => 'User Agent is not allowed.',
     'httpParams' => 'User Agent and HTTP Referer are empty.',
-    'timeRange' => 'Date difference is out of range.'
+    'timeRange' => 'Date difference is out of range.',
+    'ipAddress' => 'This IP address was already marked as spam.',
+    'numberOfSubmits' => 'This IP address submitted this form too often.'
   );
 
+  /**
+   * Is valid checks
+   * Not depending on whether messages should be saved
+   */
   protected static $isValidChecks = array(
     'validToken',
     'validHoneypot',
@@ -43,31 +55,102 @@ class SpamProtection extends \ProcessWire\Wire {
   );
 
   /**
-   * construct
+   * Is valid save messages checks
+   * Depending on whether messages should be saved
+   */
+  protected static $isValidSMChecks = array(
+    'validIpAddress',
+    'validNumberOfSubmits'
+  );
+
+  /**
+   * Construct
    */
   public function __construct() {
     $this->setLogFile();
+    $this->currentIp = $_SERVER['REMOTE_ADDR'];
   }
 
+  /**
+   * Set log file
+   */
   public function setLogFile() {
-    $this->scfLog = strtolower(SimpleContactForm::CLASS_NAME . '-log');
+    $this->scfLog = strtolower(SCF::CLASS_NAME . '-log');
   }
 
+  /**
+   * Set number of inputs to compare with
+   *
+   * @param integer $count
+   * @return SpamProtection
+   */
   public function setCount($count) {
     $this->count = (int)$count;
+    return $this;
   }
 
+  /**
+   * Set time range a submission is valid
+   *
+   * @param integer $min
+   * @param integer $max
+   * @return SpamProtection
+   */
   public function setTimeRange($min, $max) {
     $this->timeRange = (object)array(
       'min' => $min,
       'max' => $max
     );
+    return $this;
   }
 
+  /**
+   * Set whether messages should be saved
+   *
+   * @param boolean $saveMessages
+   * @return SpamProtection
+   */
+  public function setSaveMessages($saveMessages) {
+    $this->saveMessages = $saveMessages;
+    return $this;
+  }
+
+  /**
+   * Set ip addresses which should be excluded
+   *
+   * @param string $excludeIpAdresses
+   * @return SpamProtection
+   */
+  public function setExcludeIpAdresses($excludeIpAdresses) {
+    $this->excludeIpAdresses = explode(',', $excludeIpAdresses);
+    return $this;
+  }
+
+  /**
+   * Set maximum number of submits per day
+   *
+   * @param string $numberOfSubmitsPerDay
+   * @return SpamProtection
+   */
+  public function setNumberOfSubmitsPerDay($numberOfSubmitsPerDay) {
+    $this->numberOfSubmitsPerDay = $numberOfSubmitsPerDay;
+    return $this;
+  }
+
+  /**
+   * Whether spam was detected
+   *
+   * @return boolean
+   */
   public function isSpam() {
     return self::$isSpam;
   }
 
+  /**
+   * Get random animal to build error message
+   *
+   * @return string
+   */
   public function getAnimal() {
     $animals = array(
       $this->_('monkey'),
@@ -79,6 +162,11 @@ class SpamProtection extends \ProcessWire\Wire {
     return $animals[array_rand($animals)];
   }
 
+  /**
+   * Get random fruit to build error message
+   *
+   * @return string
+   */
   public function getFruit() {
     $fruits = array(
       $this->_('strawberry'),
@@ -90,19 +178,38 @@ class SpamProtection extends \ProcessWire\Wire {
     return $fruits[array_rand($fruits)];
   }
 
+  /**
+   * Set whether the request is marked as spam
+   *
+   * @param boolean $isSpam
+   */
   protected function setIsSpam($isSpam = true) {
     self::$isSpam = $isSpam;
   }
 
+  /**
+   * Add log entry
+   *
+   * @param string $key
+   */
   protected function addLogEntry($key) {
-    $this->log->save($this->scfLog, '[FAILURE] ' . $this->getErrorMessage($key));
+    $this->log->save($this->scfLog, "[FAILURE] {$this->getErrorMessage($key)} IP: {$this->currentIp}");
   }
 
+  /**
+   * Get specific error message
+   *
+   * @param string $key
+   * @return string
+   */
   protected function getErrorMessage($key) {
     if (!array_key_exists($key, self::$errorMessages)) $key = 'default';
     return self::$errorMessages[$key];
   }
 
+  /**
+   * Check CSRF token
+   */
   protected function validToken() {
     try {
       $this->session->CSRF->validate();
@@ -112,6 +219,9 @@ class SpamProtection extends \ProcessWire\Wire {
     }
   }
 
+  /**
+   * Check if the honeypot field was filled
+   */
   protected function validHoneypot() {
     if ($this->input->post->{'scf-website'}) {
       $this->setIsSpam();
@@ -119,6 +229,9 @@ class SpamProtection extends \ProcessWire\Wire {
     }
   }
 
+  /**
+   * Check if the number of fields match
+   */
   protected function validNumberOfFields() {
     if (count($this->input->post) !== $this->count) {
       $this->setIsSpam();
@@ -126,6 +239,9 @@ class SpamProtection extends \ProcessWire\Wire {
     }
   }
 
+  /**
+   * Check the user agent
+   */
   protected function validUserAgent() {
     if (preg_match(self::USER_AGENTS, $_SERVER['HTTP_USER_AGENT'])) {
       $this->setIsSpam();
@@ -133,6 +249,9 @@ class SpamProtection extends \ProcessWire\Wire {
     }
   }
 
+  /**
+   * Check http referrer and user agent
+   */
   protected function validHttpParams() {
     if ($_SERVER['HTTP_REFERER'] === '' && $_SERVER['HTTP_USER_AGENT'] === '') {
       $this->setIsSpam();
@@ -140,6 +259,9 @@ class SpamProtection extends \ProcessWire\Wire {
     }
   }
 
+  /**
+   * Check whether the form was submitted within a certain time range
+   */
   protected function validTimeRange() {
     $date = (int)$this->input->post->{'scf-date'};
     $dateDiff = $date ? time() - $date : 0;
@@ -150,9 +272,40 @@ class SpamProtection extends \ProcessWire\Wire {
   }
 
   /**
+   * Check whether the ip address was marked as spam
+   */
+  protected function validIpAddress() {
+    $spamIpPages = $this->pages->find('template=' . SCF::SM_TEMPLATE_NAME . ', scf_spamIp!=');
+    if (!$spamIpPages->count()) return;
+
+    foreach ($spamIpPages as $spamIpPage) {
+      if ($spamIpPage->scf_ip === $this->currentIp) {
+        $this->setIsSpam();
+        $this->addLogEntry('ipAddress');
+        break;
+      }
+    }
+  }
+
+  /**
+   * Check how often the form is allowed to be submitted by a single IP address
+   */
+  protected function validNumberOfSubmits() {
+    $dateSub = new \DateTime();
+    $dateSub->sub(new \DateInterval('P1D'));
+    $selector = 'template=' . SCF::SM_TEMPLATE_NAME . ", scf_ip={$this->currentIp}, scf_date>={$dateSub->getTimestamp()}";
+    $totalLast24h = $this->pages->find($selector)->count();
+
+    if ($totalLast24h >= $this->numberOfSubmitsPerDay) {
+      $this->setIsSpam();
+      $this->addLogEntry('numberOfSubmits');
+    }
+  }
+
+  /**
    * Validates the form
    *
-   * @return boolean
+   * @return SimpleContactForm
    */
   public function validate() {
     foreach (self::$isValidChecks as $isValid) {
@@ -160,45 +313,17 @@ class SpamProtection extends \ProcessWire\Wire {
       if (self::$isSpam) break;
     }
 
-
     // additional checks only if save messages feature is turned on
-    // if (!self::$isSpam && $this->saveMessages) {
-    //     // get all mail addresses marked as spam
-    //     $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages')->{$this->repeaterName};
-    //     $currentIp = $_SERVER['REMOTE_ADDR'];
-    //     $excludeIps = explode(',', $this->antiSpamExcludeIps);
-    //
-    //     // get ips and mail addresses marked as spam
-    //     $spam = array('ips' => array(), 'mails' => array());
-    //     $spamMailsMsgs = $receivedMessages->find('scf_spamMail!=');
-    //     $spamIpsMsgs = $receivedMessages->find('scf_spamIp!=');
-    //     foreach ($spamMailsMsgs as $spamMsg) { $spam['mails'][] = $spamMsg->scf_email; }
-    //     foreach ($spamIpsMsgs as $spamMsg) { $spam['ips'][] = $spamMsg->scf_ip; }
-    //
-    //     if (!in_array($currentIp, $excludeIps) && $this->saveMessages) {
-    //       // control how often the form is allowed to be submitted by a single IP address
-    //       $dateSub = new DateTime();
-    //       $dateSub->sub(new DateInterval('P1D'));
-    //       $totalLast24h = $receivedMessages->find('scf_ip!="", scf_date>=' . $dateSub->getTimestamp() . ', scf_ip=' . $currentIp)->count();
-    //
-    //       if ($totalLast24h >= $this->antiSpamPerDay) {
-    //         $spam = true;
-    //         $this->log->save('[FAILURE] This IP address submitted this form too often.');
-    //       }
-    //     } elseif (in_array($currentIp, $spam['ips'])) {
-    //       // check whether ip was already marked as spam
-    //       $spam = true;
-    //       $this->log->save("[FAILURE] This IP address $currentIp was already marked as spam.");
-    //     } else {
-    //       foreach ($this->emailFields as $emailField) {
-    //         if (in_array($this->input->post->{$emailField}, $spam['mails'])) {
-    //           // check whether mail address was already marked as spam
-    //           $spam = true;
-    //           $this->log->save('[FAILURE] This mail address ' . $this->input->post->{$emailField} . ' was already marked as spam.');
-    //         }
-    //       }
-    //     }
-    // }
+    if (!$this->isSpam() && $this->saveMessages) {
+      if (!in_array($this->currentIp, $this->excludeIpAdresses)) {
+        foreach (self::$isValidSMChecks as $isValid) {
+          $this->$isValid();
+          if (self::$isSpam) break;
+        }
+      }
+    }
+
+    return $this;
   }
 
 }

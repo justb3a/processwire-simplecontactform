@@ -29,14 +29,8 @@
             e.preventDefault();
 
             $.post(e.target.action, $form.serialize() + '&submit=submit', function (data) {
-              var $data = $(data);
-
-              if (!$data.children().hasClass('scf-state')) {
-                location.reload();
-              } else {
-                $form.parent().replaceWith($data);
-                plugin.load();
-              }
+              $form.parent().replaceWith($(data));
+              plugin.load();
             });
           });
         }
@@ -54,7 +48,6 @@
 
   // define the plugin defaults here
   $.simplecontactform.defaults = {
-    version: '0.7',
     form: 'js-simplecontactform'
   };
 

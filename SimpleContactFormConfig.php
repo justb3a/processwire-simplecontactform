@@ -19,7 +19,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'saveMessagesParent' => false,
       'saveMessagesScheme' => '',
       'antiSpamTimeMin' => '1',
-      'antiSpamTimeMax' => '90',
+      'antiSpamTimeMax' => '300',
       'antiSpamPerDay' => '3',
       'antiSpamExcludeIps' => '127.0.0.1',
       'cleanup' => 0
@@ -49,20 +49,6 @@ class SimpleContactFormConfig extends ModuleConfig {
     // get inputfields
     $inputfields = parent::getInputfields();
 
-    // help instructions
-    $help = $this->modules->get('InputfieldMarkup');
-    $helpContent = <<<EOD
-<h2>Instructions:</h2>
-<ul>
-<li>Complete the form below and submit it.</li>
-<li>Create a template for your contact page (if you don't already have one) and add the following line:
-<pre>echo \$modules->get('SimpleContactForm')->render();</pre></li>
-</ul>
-<p><a  target="_blank" href="https://github.com/justonestep/processwire-simplecontactform">Read more</a></p>
-EOD;
-    $help->value = $helpContent;
-    $inputfields->append($help);
-
     // fieldset general
     $fieldset = $this->modules->get('InputfieldFieldset');
     $fieldset->label = __('General');
@@ -70,26 +56,28 @@ EOD;
     // field email subject
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailSubject';
-    $field->label = __('Email Subject');
+    $field->label = __('Email: Subject');
     $field->columnWidth = 50;
+    $field->required = 1;
     $fieldset->add($field);
 
     // field email to
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailTo';
-    $field->label = __('Email To Address');
+    $field->label = __('Email: "To"-Address');
     $field->description = __('Email address(es) of the recipient(s).');
     $field->notes = __('Scheme: "Example <info@mail.com>, Name <noreply@bar.de>"');
     $field->columnWidth = 50;
+    $field->required = 1;
     $fieldset->add($field);
 
     // field email server
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailServer';
-    $field->label = __('Email From Address');
-    $field->description = __('Server address.');
+    $field->label = __('Email: "From"-Address');
     $field->notes = __('Scheme: "FromName <noreply@mail.com>"');
     $field->columnWidth = 50;
+    $field->required = 1;
     $fieldset->add($field);
 
     // save messages field
@@ -107,7 +95,7 @@ EOD;
     $field->name = 'saveMessagesParent';
     $field->label = __('Select a parent for items');
     $field->description = __('All items created and managed will live under the parent you select here.');
-    $field->notes = __('If no parent is selected, then items will be placed as children of the root page (not recommended).');
+    $field->notes = __('If no parent is selected, items will be placed as children of the root page (not recommended).');
     $field->required = 1;
     $field->requiredIf = 'saveMessages=1';
     $field->showIf = 'saveMessages=1';
@@ -116,9 +104,10 @@ EOD;
 
     // save messages name scheme
     $field = $this->modules->get('InputfieldAsmSelect');
-    $field->description = __('Add all fields (choose from existing ones, you may have to add them first below and save) which should be used as part of the page name.');
+    $field->description = __('Add all fields which should be used as part of the page name. Choose from existing ones, you may have to add them first below and save.');
+    $field->notes = __('The page name starts with a timestamp. All fields added above will be appended.');
     $field->addOption('', '');
-    $field->label = __('Select name fields');
+    $field->label = __('Select page name fields');
     $field->attr('name', 'saveMessagesScheme');
     $field->showIf = 'saveMessages=1';
     $field->columnWidth = 50;
@@ -212,24 +201,6 @@ EOD;
     $field->label = __('Exclude IPs');
     $field->description = __('Comma-Seperated list of IP addresses to be excluded from IP filtering.');
     $field->columnWidth = 50;
-    $fieldset->add($field);
-
-    $inputfields->add($fieldset);
-
-    // fieldset uninstall
-    $fieldset = $this->modules->get('InputfieldFieldset');
-    $fieldset->label = __('Uninstall');
-    $fieldset->collapsed = Inputfield::collapsedYes;
-    $fieldset->icon = 'times-circle';
-
-    // field cleanup
-    $field = $this->modules->get('InputfieldCheckbox');
-    $field->name = 'saveMessages';
-    $field->label = __('Save Messages');
-    $field->description = __('If you check the following box all data containing files as well as database content will be permanently erased with no chance for recovery. It\'s recommended to make a backup before uninstalling this module.');
-    $field->value = 1;
-    $field->attr('checked', $uninstall ? 'checked' : '');
-    $field->icon = 'trash';
     $fieldset->add($field);
 
     $inputfields->add($fieldset);
