@@ -67,9 +67,9 @@ In this file every action is logged and marked with ```[SUCCESS]``` or ```[FAILU
 
 If a message is treated as spam an entry in the spam log file will be added containing the reason why.
 
-	2016-02-09 [SUCCESS] 11:02:15	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36, 127.0.0.1, email@test.com
-  	2016-03-23 10:55:05 [FAILURE] This IP address was already marked as spam. IP: 127.0.0.1
-  	2016-03-21 12:35:05 [FAILURE] This IP address submitted this form too often. IP: 111.0.5.1
+    I2016-02-09 11:02:15 [SUCCESS] Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36, 127.0.0.1, email@test.com
+    2016-03-23 10:55:05 [FAILURE] This IP address was already marked as spam. IP: 127.0.0.1
+    2016-03-21 12:35:05 [FAILURE] This IP address submitted this form too often. IP: 111.0.5.1
 
 ## Mark messages as spam
 
