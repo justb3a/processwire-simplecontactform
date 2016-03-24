@@ -42,6 +42,14 @@ if ($config->ajax) {
 }
 ```
 
+## Spam Protection: Hide honeypot field using CSS
+
+Spam bots fill in automatically all form fields. By adding an invisible field you're able to trick the bots. The key to the honeypot technique is that the form only can be sent when the honeypot field remains empty otherwise it will be treated as spam.
+
+The honeypot technique doesn't interfere with the user experience. It demands nothing extra of them like a captcha does. In fact, user won't even notice you're using it.
+
+All that's required is a visually hidden form field. This form adds such a field named `scf-website` by default but you have to make sure to add a **display: none;** CSS rule on it.
+
 ## Example Email Message
 
 ```
@@ -77,7 +85,20 @@ If the save messages setting is turned on you have the possibility to mark recei
 
 To mark a message as spam edit the belonging page. Each page has a checkbox to matk the IP address as spam.
 
+## How to translate
 
+All phrases like email subjects are translatable. 
+Add the module file to the language translator and start translating.
+Phrases which don't exist in this file belong to the ProcessWire core.
+For example the messages *Please enter a valid e-mail address* or *Missing required value*.
+
+Relevant Files:
+
+- site/modules/NewsletterSubscription.module
+- wire/modules/Inputfield/InputfieldEmail.module
+- wire/core/InputfieldWrapper.php
+
+Depending on the fields you added to the form there might be some other files.
 
 ## Render multiple instances
 
@@ -107,6 +128,8 @@ echo $scf->render($options);
 | allFields          | string  | comma-separated list of all fields                                                                                                     |
 | submitName         | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
 | emailMessage       | string  | email message                                                                                                                          |
+| successMessage     | string  | success message                                                                                                                        |
+| errorMessage       | string  | error message                                                                                                                          |
 | emailAddMessage    | string  | email message                                                                                                                          |
 | emailSubject       | string  | email subject                                                                                                                          |
 | emailTo            | string  | email address of recipient                                                                                                             |

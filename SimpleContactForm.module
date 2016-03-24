@@ -140,6 +140,9 @@ class SimpleContactForm extends WireData implements Module {
    * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
    */
   public function ready() {
+    $this->errorMessage = $this->_('Please verify the data you have entered.');
+    $this->successMessage = $this->_('Your contact request has been send successfully!');
+
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'createAndAddFieldsOnSaveModuleConfigData');
   }
 
@@ -205,7 +208,7 @@ class SimpleContactForm extends WireData implements Module {
           $d->attr('value', time());
         }
       } else {
-          $form->appendMarkup .= '<p class="form--error--message">' . $this->_('Please verify the data you have entered.') . '</p>';
+          $form->appendMarkup .= "<p class='form--error--message'>{$this->errorMessage}</p>";
       }
 
       // send mail
@@ -213,7 +216,7 @@ class SimpleContactForm extends WireData implements Module {
         $this->sendMail();
         if ($this->saveMessages) $this->saveMessage();
         $text = $this->_('Your contact request has been send successfully!');
-        $out = "<p class='form--success--message'>$text</p>";
+        $out = "<p class='form--success--message'>{$this->successMessage}</p>";
       }
     }
 
@@ -262,7 +265,7 @@ class SimpleContactForm extends WireData implements Module {
     // add a submit button to the form
     $submit = $this->modules->get('InputfieldSubmit');
     $submit->name = $this->submitName;
-    $submit->attr('value', __('Send'));
+    $submit->attr('value', $this->_('Send'));
     $submit->attr('class', 'button');
     $form->append($submit);
 
@@ -273,7 +276,7 @@ class SimpleContactForm extends WireData implements Module {
    * Render
    * available keys:
    *   allFields, submitName
-   *   emailMessage, emailAddMessage
+   *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
@@ -288,7 +291,7 @@ class SimpleContactForm extends WireData implements Module {
    * Render further instance
    * available keys:
    *   allFields, submitName
-   *   emailMessage, emailAddMessage
+   *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
