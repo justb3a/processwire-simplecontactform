@@ -126,7 +126,8 @@ echo $scf->render($options);
 | key                | type    | description                                                                                                                            |
 | ---                | ----    | -----------                                                                                                                            |
 | allFields          | string  | comma-separated list of all fields                                                                                                     |
-| submitName         | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
+| isubmitName        | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
+| action             | string  | set specific form action, defaults to same page './'                                                                                   |
 | emailMessage       | string  | email message                                                                                                                          |
 | successMessage     | string  | success message                                                                                                                        |
 | errorMessage       | string  | error message                                                                                                                          |

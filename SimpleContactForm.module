@@ -175,7 +175,7 @@ class SimpleContactForm extends WireData implements Module {
    * @return string
    */
   private function renderForm($options) {
-    $form = $this->getForm();
+    $form = $this->getForm($options);
     $this->setMarkup($form, $options);
     $this->setClasses($form, $options);
 
@@ -229,10 +229,10 @@ class SimpleContactForm extends WireData implements Module {
    * @param array $options
    * @return Form
    */
-  private function getForm($options = array()) {
+  private function getForm($options) {
     $form = $this->modules->get('InputfieldForm');
 
-    $form->action = './';
+    $form->action = isset($options['action']) ? $options['action'] : './';
     $form->method = 'post';
     $form->attr('id+name','contact-form');
     if (isset($options['prependMarkup'])) $form->prependMarkup = $options['prependMarkup'];
@@ -275,7 +275,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render
    * available keys:
-   *   allFields, submitName
+   *   allFields, submitName, actionPage
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
@@ -290,7 +290,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render further instance
    * available keys:
-   *   allFields, submitName
+   *   allFields, submitName, actionPage
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
