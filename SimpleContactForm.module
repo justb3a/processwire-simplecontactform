@@ -719,19 +719,4 @@ class SimpleContactForm extends WireData implements Module {
    */
   protected function ___processValidation($form) {}
 
-  /**
-   * Called only when the module is uninstalled
-   * this should return the site to the same state it was in before the module was installed
-   *
-   * @access public
-   */
-  public function ___uninstall() {}
-
-  /**
-   * install routine
-   */
-  public function ___install() {
-    wire('modules')->saveModuleConfigData($this, self::$defaults);
-  }
-
 }
