@@ -1,12 +1,7 @@
 /*!
 * jQuery Plugin
 * Author: Tabea David | tabea.david@kf-interactive.com
-*
-* Requirements: loaded and working Modernizr and jQuery
 */
-
-/*JSHINT globals*/
-/*global Modernizr: true*/
 
 ;(function($, window, document, undefined) {
 
