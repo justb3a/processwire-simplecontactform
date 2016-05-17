@@ -14,6 +14,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'emailSubject' => 'New Web Contact Form Submission',
       'emailMessage' => '',
       'emailServer' => 'noreply@server.com',
+      'emailReplyTo' => '',
       'allFields' => '',
       'saveMessages' => false,
       'saveMessagesParent' => false,
@@ -78,6 +79,14 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->notes = __('Scheme: "FromName <noreply@mail.com>"');
     $field->columnWidth = 50;
     $field->required = 1;
+    $fieldset->add($field);
+
+    // field email reply to
+    $field = $this->modules->get('InputfieldText');
+    $field->name = 'emailReplyTo';
+    $field->label = __('Email: "Reply-To"-Address');
+    $field->notes = __('Optional; Scheme: "ReplyToName <reply@mail.com>"');
+    $field->columnWidth = 50;
     $fieldset->add($field);
 
     // save messages field

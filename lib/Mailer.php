@@ -21,10 +21,11 @@ class Mailer extends \ProcessWire\Wire {
    *
    * @param string $to
    * @param string $from
+   * @param string $replyTo
    * @param string $subject
    * @param string $body
    */
-  public function __construct($to, $from, $subject, $body) {
+  public function __construct($to, $from, $replyTo, $subject, $body) {
     $this->subject = $subject;
     $this->body = $body;
 
@@ -37,6 +38,12 @@ class Mailer extends \ProcessWire\Wire {
     list($fromEmail, $fromName) = $this->extractEmailAndName($from);
     $this->from = "$fromName <$fromEmail>";
 
+    if ($replyTo) {
+      list($replyToEmail, $replyToName) = $this->extractEmailAndName($replyTo);
+      $this->replyTo = "$replyToName <$replyToEmail>";
+    } else {
+      $this->replyTo = '';
+    }
   }
 
   /**
@@ -75,6 +82,9 @@ class Mailer extends \ProcessWire\Wire {
     $wireMail->from($this->from);
     $wireMail->subject($this->subject);
     $wireMail->body($this->body);
+
+    if ($this->replyTo) $wireMail->header('Reply-To', $this->replyTo);
+
     return $wireMail->send();
   }
 

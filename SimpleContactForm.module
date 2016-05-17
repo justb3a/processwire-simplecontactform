@@ -277,7 +277,7 @@ class SimpleContactForm extends WireData implements Module {
    * available keys:
    *   allFields, submitName, actionPage
    *   emailMessage, emailAddMessage, successMessage, errorMessage
-   *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
+   *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
@@ -292,7 +292,7 @@ class SimpleContactForm extends WireData implements Module {
    * available keys:
    *   allFields, submitName, actionPage
    *   emailMessage, emailAddMessage, successMessage, errorMessage
-   *   emailSubject, emailTo, emailServer, emailAdd, emailAddSubject, emailAddTo
+   *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
@@ -338,6 +338,9 @@ class SimpleContactForm extends WireData implements Module {
         case 'emailServer':
           $this->emailServer = $value;
           break;
+        case 'emailReplyTo':
+          $this->emailReplyTo = $value;
+          break;
         case 'emailAdd':
           $this->emailAdd = $value;
           break;
@@ -346,6 +349,9 @@ class SimpleContactForm extends WireData implements Module {
           break;
         case 'emailAddTo':
           $this->emailAddTo = $value;
+          break;
+        case 'emailAddReplyTo':
+          $this->emailAddReplyTo = $value;
           break;
 
         // === general
@@ -363,6 +369,7 @@ class SimpleContactForm extends WireData implements Module {
     if (isset($this->emailAdd) && $this->emailAdd) {
       if (!isset($this->emailAddMessage)) $this->emailAddMessage = $this->emailMessage;
       if (!isset($this->emailAddTo)) $this->emailAddTo = $this->emailTo;
+      if (!isset($this->emailAddReplyTo)) $this->emailAddReplyTo = $this->emailReplyTo;
       if (!isset($this->emailAddSubject)) $this->emailAddSubject = $this->emailSubject;
     }
 
@@ -405,6 +412,7 @@ class SimpleContactForm extends WireData implements Module {
     $mail = new Mailer(
       $this->emailTo,
       $this->emailServer,
+      $this->emailReplyTo,
       $this->emailSubject,
       trim($this->getMessageContent($this->emailMessage))
     );
@@ -463,6 +471,7 @@ class SimpleContactForm extends WireData implements Module {
     $mail = new Mailer(
       $this->emailAddTo,
       $this->emailServer,
+      $this->emailAddReplyTo,
       $this->emailAddSubject,
       trim($this->getMessageContent($this->emailAddMessage))
     );

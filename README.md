@@ -115,6 +115,7 @@ $options = array(
   'emailAdd' => true,
   'emailAddSubject' => 'hi there',
   'emailAddMessage' => 'Hi %scf_fullName%',
+  'emailAddReplyTo' => $input->scf_email,
   'emailAddTo' => $input->scf_email
 );
 
@@ -138,6 +139,7 @@ echo $scf->render($options);
 | emailAdd           | boolean | set this to true if you want to send more than one email                                                                               |
 | emailAddSubject    | string  | email subject                                                                                                                          |
 | emailAddTo         | string  | email to                                                                                                                               |
+| emailAddReplyTo    | string  | email reply to                                                                                                                         |
 | saveMessages       | boolean | whether to save received messages                                                                                                      |
 | saveMessagesParent | integer | All items created and managed will live under the parent you select here                                                               |
 | markup             | array   | overwrite markup                                                                                                                       |
