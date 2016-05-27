@@ -619,7 +619,7 @@ EOD;
 
       // return success - regardless whether a mail has been sent or not
       $this->input->post->success = $this->successMessage;
-      
+
       // log whether a mail has been sent or not
       if ($numSent) {
         $logmessage = array(
@@ -635,8 +635,8 @@ EOD;
       }
 
       // edit page - save message
-      if ($this->pages->findOne('template=simple_contact_form_messages') instanceof Page && $this->saveMessages) {
-        $page = $this->pages->findOne('template=simple_contact_form_messages');
+      if ($this->pages->findOne('template=simple_contact_form_messages, include=all') instanceof Page && $this->saveMessages) {
+        $page = $this->pages->findOne('template=simple_contact_form_messages, include=all');
         $newEntry = $page->{$this->repeaterName}->getNew();
 
         foreach ($this->allFields as $inputfield) {
@@ -738,7 +738,7 @@ EOD;
       // additional checks only if save messages feature is turned on
       if ($spam === false && $this->saveMessages) {
         // get all mail addresses marked as spam
-        $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages')->{$this->repeaterName};
+        $receivedMessages = $this->pages->findOne('template=simple_contact_form_messages, include=all')->{$this->repeaterName};
         $currentIp = $_SERVER['REMOTE_ADDR'];
         $excludeIps = explode(',', $this->antiSpamExcludeIps);
 
