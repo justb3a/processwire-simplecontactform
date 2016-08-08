@@ -94,7 +94,7 @@ For example the messages *Please enter a valid e-mail address* or *Missing requi
 
 Relevant Files:
 
-- site/modules/lib/SpamProtection.php
+- site/modules/SimpleContactForm/lib/SpamProtection.php
 - wire/modules/Inputfield/InputfieldEmail.module
 - wire/core/InputfieldWrapper.php
 
