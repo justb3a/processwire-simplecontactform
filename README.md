@@ -94,7 +94,7 @@ For example the messages *Please enter a valid e-mail address* or *Missing requi
 
 Relevant Files:
 
-- site/modules/NewsletterSubscription.module
+- site/modules/lib/SpamProtection.php
 - wire/modules/Inputfield/InputfieldEmail.module
 - wire/core/InputfieldWrapper.php
 
@@ -127,7 +127,9 @@ echo $scf->render($options);
 | key                | type    | description                                                                                                                            |
 | ---                | ----    | -----------                                                                                                                            |
 | allFields          | string  | comma-separated list of all fields                                                                                                     |
-| isubmitName        | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
+| submitName         | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
+| btnClass           | string  | add custom submit button class(es), defaults to `button`                                                                               |
+| btnText            | string  | add custom submit button text, defaults to `Send`                                                                                      |
 | action             | string  | set specific form action, defaults to same page './'                                                                                   |
 | emailMessage       | string  | email message                                                                                                                          |
 | successMessage     | string  | success message                                                                                                                        |

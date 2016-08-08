@@ -131,6 +131,8 @@ class SimpleContactForm extends WireData implements Module {
     foreach (self::$additionalFields as $f) $allFieldsExtended[] = $f;
     $this->allFieldsExtended = $allFieldsExtended;
     $this->submitName = 'submit';
+    $this->btnClass = 'button';
+    $this->btnText = 'Send';
   }
 
   /**
@@ -188,8 +190,19 @@ class SimpleContactForm extends WireData implements Module {
       // anti spam measures
       if (!$form->getErrors()) {
         $spamProtector = new SpamProtection();
+
+        // exclude markup fields from spam count
+        $markupFields = 0;
+        foreach ($this->allFields as $inputfield) {
+          if ($field = $this->fields->get($inputfield)) {
+            if ($field->type instanceof FieldtypeFieldsetOpen || $field->type instanceof FieldtypeFieldsetTabOpen) {
+              $markupFields++;
+            }
+          }
+        }
+
         $spamProtector
-          ->setCount(count($this->allFields) + count(self::$spamFields))
+          ->setCount(count($this->allFields) - $markupFields + count(self::$spamFields))
           ->setTimeRange($this->antiSpamTimeMin, $this->antiSpamTimeMax)
           ->setSaveMessages($this->saveMessages)
           ->setExcludeIpAdresses($this->antiSpamExcludeIps)
@@ -265,8 +278,8 @@ class SimpleContactForm extends WireData implements Module {
     // add a submit button to the form
     $submit = $this->modules->get('InputfieldSubmit');
     $submit->name = $this->submitName;
-    $submit->attr('value', $this->_('Send'));
-    $submit->attr('class', 'button');
+    $submit->attr('value', $this->btnText === 'Send' ? $this->_('Send') : $this->btnText);
+    $submit->attr('class', $this->btnClass);
     $form->append($submit);
 
     return $form;
@@ -275,7 +288,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render
    * available keys:
-   *   allFields, submitName, actionPage
+   *   allFields, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
@@ -290,7 +303,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render further instance
    * available keys:
-   *   allFields, submitName, actionPage
+   *   allFields, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
@@ -313,6 +326,12 @@ class SimpleContactForm extends WireData implements Module {
         // === names
         case 'submitName':
           $this->submitName = $value;
+
+        case 'btnClass':
+          $this->btnClass = $value;
+
+        case 'btnText':
+          $this->btnText = $value;
 
         // === messages
         case 'successMessage':
