@@ -1,5 +1,7 @@
 # SimpleContactForm for ProcessWire
 
+Compatibility: ProcessWire 3.x
+
 Just a simple contact form including spam protection.
 See [ProcessWire Forums - Support Board](https://processwire.com/talk/topic/8254-simple-contact-form-optional-twig-support/).
 
