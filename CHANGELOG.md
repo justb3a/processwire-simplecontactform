@@ -1,5 +1,12 @@
 # Changelog
 
+### 1.0.0 (2016-03-23)
+
+- adds ProcessWire 3.x compatibility. Choose branch `2.x` if you want to use it with a version below 3.x
+- outsources Mailer and SpamProtection
+- adds namespaces support
+- adds a Reply-To-Header (optional)
+
 ### 0.2.1 (2016-01-10)
 
 - data will be stored, regardless whether a mail has been sent or not
