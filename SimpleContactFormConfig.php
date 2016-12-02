@@ -185,6 +185,7 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->name = 'antiSpamTimeMin';
     $field->label = __('Minimum Time');
     $field->description = __('It parses the time the user needs to fill out the form. If the time is below a minimum time, the submission is treated as Spam.');
+    $field->notes = __('- in seconds -');
     $field->columnWidth = 50;
     $fieldset->add($field);
 
@@ -193,6 +194,7 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->name = 'antiSpamTimeMax';
     $field->label = __('Maximum Time');
     $field->description = __('It parses the time the user needs to fill out the form. If the time is over a maximum time, the submission is treated as Spam.');
+    $field->notes = __('- in seconds -');
     $field->columnWidth = 50;
     $fieldset->add($field);
 
