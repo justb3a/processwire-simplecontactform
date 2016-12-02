@@ -151,7 +151,7 @@ echo $scf->render($options);
 | prependMarkup      | string  | prepend some markup/content                                                                                                            |
 | appendMarkup       | string  | append some markup/content                                                                                                             |
 
-To get an overview of what's possible, have a look at [How to overwrite classes and markup](https://github.com/justonestep/processwire-newslettersubscription/tree/develop#how-to-overwrite-classes-and-markup)
+To get an overview of what's possible, have a look at [How to overwrite classes and markup][1]
 
 
 ### More options for email templates, emailTo, ..
@@ -201,3 +201,5 @@ $this->addHookBefore('SimpleContactForm::processValidation', function(HookEvent 
   }
 });
 ```
+
+[1]: https://github.com/justb3a/processwire-simplecontactform/doc/overwrite-classes-and-markup.md 'How to overwrite classes and markup'
