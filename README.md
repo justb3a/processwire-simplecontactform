@@ -202,4 +202,4 @@ $this->addHookBefore('SimpleContactForm::processValidation', function(HookEvent 
 });
 ```
 
-[1]: https://github.com/justb3a/processwire-simplecontactform/doc/overwrite-classes-and-markup.md 'How to overwrite classes and markup'
+[1]: https://github.com/justb3a/processwire-simplecontactform/blob/master/doc/overwrite-classes-and-markup.md 'How to overwrite classes and markup'
