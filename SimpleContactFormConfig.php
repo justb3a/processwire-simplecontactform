@@ -121,8 +121,9 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->showIf = 'saveMessages=1';
     $field->columnWidth = 50;
     foreach ($allFields as $aField) {
-      $f = $this->fields->get($aField);
-      $field->addOption($f->name, $f->name);
+      if ($f = $this->fields->get($aField)) {
+        $field->addOption($f->name, $f->name);
+      }
     }
     // $field->attr('value', $allFields);
     $fieldset->add($field);
