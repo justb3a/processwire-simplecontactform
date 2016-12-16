@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.0.1 (2016-12-16)
+
+- adds setting `sendEmails`, define whether Emails should be sent
+
 ### 1.0.0 (2016-03-23)
 
 - adds ProcessWire 3.x compatibility. Choose branch `2.x` if you want to use it with a version below 3.x
