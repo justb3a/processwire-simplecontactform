@@ -127,12 +127,13 @@ echo $scf->render($options);
 ### Available Keys
 
 | key                | type    | description                                                                                                                            |
-| ---                | ----    | -----------                                                                                                                            |
+|--------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------|
 | allFields          | string  | comma-separated list of all fields                                                                                                     |
 | submitName         | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names |
 | btnClass           | string  | add custom submit button class(es), defaults to `button`                                                                               |
 | btnText            | string  | add custom submit button text, defaults to `Send`                                                                                      |
 | action             | string  | set specific form action, defaults to same page './'                                                                                   |
+| sendEmails         | boolean | whether Emails should be sent                                                                                                          |
 | emailMessage       | string  | email message                                                                                                                          |
 | successMessage     | string  | success message                                                                                                                        |
 | errorMessage       | string  | error message                                                                                                                          |

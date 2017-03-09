@@ -10,6 +10,7 @@ class SimpleContactFormConfig extends ModuleConfig {
    */
   public function getDefaults() {
     return array(
+      'sendEmails' => true,
       'emailTo' => '',
       'emailSubject' => 'New Web Contact Form Submission',
       'emailMessage' => '',
@@ -36,6 +37,7 @@ class SimpleContactFormConfig extends ModuleConfig {
   public function getInputfields() {
     // get submitted data
     $saveMessages = isset($this->data['saveMessages']) ? $this->data['saveMessages'] : false;
+    $sendEmails = isset($this->data['sendEmails']) ? $this->data['sendEmails'] : true;
     $uninstall = isset($this->data['uninstall']) ? $this->data['uninstall'] : false;
     $allFields = isset($this->data['allFields']) ? $this->data['allFields'] : array();
 
@@ -54,22 +56,35 @@ class SimpleContactFormConfig extends ModuleConfig {
     $fieldset = $this->modules->get('InputfieldFieldset');
     $fieldset->label = __('General');
 
+    // field send emails
+    $field = $this->modules->get('InputfieldCheckbox');
+    $field->name = 'sendEmails';
+    $field->label = __('Send Emails?');
+    $field->description = __('Should Emails be sent?');
+    $field->value = 1;
+    $field->attr('checked', $sendEmails ? 'checked' : '');
+    $field->columnWidth = 50;
+    $fieldset->add($field);
+
     // field email subject
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailSubject';
     $field->label = __('Email: Subject');
     $field->columnWidth = 50;
     $field->required = 1;
+    $field->requiredIf = 'sendEmails=1';
+    $field->showIf = 'sendEmails=1';
     $fieldset->add($field);
 
     // field email to
     $field = $this->modules->get('InputfieldText');
     $field->name = 'emailTo';
     $field->label = __('Email: "To"-Address');
-    $field->description = __('Email address(es) of the recipient(s).');
     $field->notes = __('Scheme: "Example <info@mail.com>, Name <noreply@bar.de>"');
-    $field->columnWidth = 50;
+    $field->columnWidth = 33;
     $field->required = 1;
+    $field->requiredIf = 'sendEmails=1';
+    $field->showIf = 'sendEmails=1';
     $fieldset->add($field);
 
     // field email server
@@ -77,8 +92,10 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->name = 'emailServer';
     $field->label = __('Email: "From"-Address');
     $field->notes = __('Scheme: "FromName <noreply@mail.com>"');
-    $field->columnWidth = 50;
+    $field->columnWidth = 33;
     $field->required = 1;
+    $field->requiredIf = 'sendEmails=1';
+    $field->showIf = 'sendEmails=1';
     $fieldset->add($field);
 
     // field email reply to
@@ -86,7 +103,9 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->name = 'emailReplyTo';
     $field->label = __('Email: "Reply-To"-Address');
     $field->notes = __('Optional; Scheme: "ReplyToName <reply@mail.com>"');
-    $field->columnWidth = 50;
+    $field->columnWidth = 34;
+    $field->requiredIf = 'sendEmails=1';
+    $field->showIf = 'sendEmails=1';
     $fieldset->add($field);
 
     // save messages field
@@ -163,6 +182,7 @@ class SimpleContactFormConfig extends ModuleConfig {
     // fieldset messages
     $fieldset = $this->modules->get('InputfieldFieldset');
     $fieldset->label = __('Messages');
+    $fieldset->showIf = 'sendEmails=1';
     $fieldset->collapsed = Inputfield::collapsedYes;
 
     // field email message

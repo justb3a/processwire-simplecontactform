@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.0
+* @version 1.0.1
 * @copyright Copyright (c) 2016
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 100,
+      'version' => 101,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -226,7 +226,7 @@ class SimpleContactForm extends WireData implements Module {
 
       // send mail
       if (!$form->getErrors()) {
-        $this->sendMail();
+        if ($this->sendEmails) $this->sendMail();
         if ($this->saveMessages) $this->saveMessage();
         $text = $this->_('Your contact request has been send successfully!');
         $out = "<p class='form--success--message'>{$this->successMessage}</p>";
@@ -252,8 +252,8 @@ class SimpleContactForm extends WireData implements Module {
     if (isset($options['appendMarkup'])) $form->appendMarkup = $options['appendMarkup'];
 
     // add fields
-    if (is_array($this->allFieldsExtended)) {
-      foreach ($this->allFieldsExtended as $fieldname) {
+    if (is_array($this->allFields)) {
+      foreach ($this->allFields as $fieldname) {
         if ($field = $this->fields->get($fieldname)) {
           $inputfield = $field->getInputfield($this->page);
           $form->append($inputfield);
@@ -278,8 +278,8 @@ class SimpleContactForm extends WireData implements Module {
     // add a submit button to the form
     $submit = $this->modules->get('InputfieldSubmit');
     $submit->name = $this->submitName;
-    $submit->attr('value', $this->btnText === 'Send' ? $this->_('Send') : $this->btnText);
     $submit->attr('class', $this->btnClass);
+    $submit->attr('value', $this->btnText === 'Send' ? $this->_('Send') : $this->btnText);
     $form->append($submit);
 
     return $form;
@@ -290,7 +290,7 @@ class SimpleContactForm extends WireData implements Module {
    * available keys:
    *   allFields, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
-   *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
+   *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
@@ -305,7 +305,7 @@ class SimpleContactForm extends WireData implements Module {
    * available keys:
    *   allFields, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
-   *   emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
+   *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
@@ -329,9 +329,11 @@ class SimpleContactForm extends WireData implements Module {
 
         case 'btnClass':
           $this->btnClass = $value;
+          break;
 
         case 'btnText':
           $this->btnText = $value;
+          break;
 
         // === messages
         case 'successMessage':
@@ -348,6 +350,9 @@ class SimpleContactForm extends WireData implements Module {
           break;
 
         // === email
+        case 'sendEmails':
+          $this->sendEmails = $value;
+          break;
         case 'emailSubject':
           $this->emailSubject = $value;
           break;
@@ -439,7 +444,7 @@ class SimpleContactForm extends WireData implements Module {
     $numSent = $mail->send();
 
     // send additional mail
-    if (isset($this->emailAdd) && $this->emailAdd) $this->sendAdditionalMail();
+    if ($this->sendEmails && isset($this->emailAdd) && $this->emailAdd) $this->sendAdditionalMail();
 
     // log whether a mail has been sent or not
     if ($numSent) {
