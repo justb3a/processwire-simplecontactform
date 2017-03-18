@@ -17,6 +17,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'emailServer' => 'noreply@server.com',
       'emailReplyTo' => '',
       'allFields' => '',
+      'redirectPage' => '',
       'saveMessages' => false,
       'saveMessagesParent' => false,
       'saveMessagesScheme' => '',
@@ -35,12 +36,7 @@ class SimpleContactFormConfig extends ModuleConfig {
    * @return InputfieldWrapper
    */
   public function getInputfields() {
-    // get submitted data
-    $saveMessages = isset($this->data['saveMessages']) ? $this->data['saveMessages'] : false;
-    $sendEmails = isset($this->data['sendEmails']) ? $this->data['sendEmails'] : true;
-    $uninstall = isset($this->data['uninstall']) ? $this->data['uninstall'] : false;
     $allFields = isset($this->data['allFields']) ? $this->data['allFields'] : array();
-
     if (!is_array($allFields)) $allFields = explode(',', $this->data['allFields']); // @todo: deprecated
 
     // add prefix if necessary
@@ -54,7 +50,7 @@ class SimpleContactFormConfig extends ModuleConfig {
 
     // fieldset general
     $fieldset = $this->modules->get('InputfieldFieldset');
-    $fieldset->label = __('General');
+    $fieldset->label = __('Email');
 
     // field send emails
     $field = $this->modules->get('InputfieldCheckbox');
@@ -62,7 +58,6 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->label = __('Send Emails?');
     $field->description = __('Should Emails be sent?');
     $field->value = 1;
-    $field->attr('checked', $sendEmails ? 'checked' : '');
     $field->columnWidth = 50;
     $fieldset->add($field);
 
@@ -107,6 +102,11 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->requiredIf = 'sendEmails=1';
     $field->showIf = 'sendEmails=1';
     $fieldset->add($field);
+    $inputfields->add($fieldset);
+
+    // fieldset general
+    $fieldset = $this->modules->get('InputfieldFieldset');
+    $fieldset->label = __('Save Messages');
 
     // save messages field
     $field = $this->modules->get('InputfieldCheckbox');
@@ -114,7 +114,6 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->label = __('Save Messages');
     $field->description = __('Should the messages be saved?');
     $field->value = 1;
-    $field->attr('checked', $saveMessages ? 'checked' : '');
     $field->columnWidth = 50;
     $fieldset->add($field);
 
@@ -178,6 +177,14 @@ class SimpleContactFormConfig extends ModuleConfig {
     $fieldset->add($field);
 
     $inputfields->add($fieldset);
+
+    // redirect to a specific URL after successfull submission
+    $field = $this->modules->get('InputfieldPageListSelect');
+    $field->name = 'redirectPage';
+    $field->label = __('Redirect to a specific page after successfull submission ');
+    $field->description = __('OPTIONAL: If you prefer to stay on the same page, just leave this field empty.');
+    $field->columnWidth = 50;
+    $fieldset->add($field);
 
     // fieldset messages
     $fieldset = $this->modules->get('InputfieldFieldset');
