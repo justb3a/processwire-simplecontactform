@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.1
+* @version 1.0.2
 * @copyright Copyright (c) 2016
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 101,
+      'version' => 102,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -228,8 +228,13 @@ class SimpleContactForm extends WireData implements Module {
       if (!$form->getErrors()) {
         if ($this->sendEmails) $this->sendMail();
         if ($this->saveMessages) $this->saveMessage();
-        $text = $this->_('Your contact request has been send successfully!');
-        $out = "<p class='form--success--message'>{$this->successMessage}</p>";
+
+        if ($p = $this->redirectPage) {
+          $this->session->redirect($this->pages->get($p)->url);
+        } else {
+          $text = $this->_('Your contact request has been send successfully!');
+          $out = "<p class='form--success--message'>{$this->successMessage}</p>";
+        }
       }
     }
 
@@ -288,7 +293,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render
    * available keys:
-   *   allFields, submitName, actionPage, btnClass, btnText
+   *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
@@ -303,7 +308,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render further instance
    * available keys:
-   *   allFields, submitName, actionPage, btnClass, btnText
+   *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
@@ -323,9 +328,14 @@ class SimpleContactForm extends WireData implements Module {
           $this->allFieldsExtended = $allFieldsExtended;
           break;
 
+        case 'redirectPage':
+          $this->redirectPage = $value;
+          break;
+
         // === names
         case 'submitName':
           $this->submitName = $value;
+          break;
 
         case 'btnClass':
           $this->btnClass = $value;
