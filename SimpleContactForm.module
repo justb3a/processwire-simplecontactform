@@ -132,7 +132,7 @@ class SimpleContactForm extends WireData implements Module {
     $this->allFieldsExtended = $allFieldsExtended;
     $this->submitName = 'submit';
     $this->btnClass = 'button';
-    $this->btnText = 'Send';
+    $this->btnText = $this->_('Send');
   }
 
   /**
