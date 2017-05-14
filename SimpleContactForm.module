@@ -132,7 +132,7 @@ class SimpleContactForm extends WireData implements Module {
     $this->allFieldsExtended = $allFieldsExtended;
     $this->submitName = 'submit';
     $this->btnClass = 'button';
-    $this->btnText = 'Send';
+    $this->btnText = $this->_('Send');
   }
 
   /**
@@ -143,7 +143,7 @@ class SimpleContactForm extends WireData implements Module {
    */
   public function ready() {
     $this->errorMessage = $this->_('Please verify the data you have entered.');
-    $this->successMessage = $this->_('Your contact request has been send successfully!');
+    $this->successMessage = $this->_('Your contact request has been sent successfully!');
 
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'createAndAddFieldsOnSaveModuleConfigData');
   }
@@ -274,7 +274,7 @@ class SimpleContactForm extends WireData implements Module {
 
     // add hidden field to save current timestamp
     $field = $this->modules->get('InputfieldHidden');
-    $field->label = 'Date';
+    $field->skipLabel = Inputfield::skipLabelBlank;
     $field->attr('name+id', 'scf-date');
     $field->attr('value', time());
     $field->required = 1;
