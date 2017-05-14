@@ -1,5 +1,15 @@
 # Changelog
 
+### 1.0.3 (2017-05-14)
+
+- corrects typo in success message: **The translation string has been changed, some may need to translate it again!** // thanks @szabesz
+- hides date field label // thanks @binarious
+- makes send btn text translatable
+
+### 1.0.2 (2017-03-18)
+
+- adds option to specify a redirect page
+
 ### 1.0.1 (2016-12-16)
 
 - adds setting `sendEmails`, define whether Emails should be sent

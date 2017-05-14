@@ -143,7 +143,7 @@ class SimpleContactForm extends WireData implements Module {
    */
   public function ready() {
     $this->errorMessage = $this->_('Please verify the data you have entered.');
-    $this->successMessage = $this->_('Your contact request has been send successfully!');
+    $this->successMessage = $this->_('Your contact request has been sent successfully!');
 
     $this->addHookBefore('Modules::saveModuleConfigData', $this, 'createAndAddFieldsOnSaveModuleConfigData');
   }
