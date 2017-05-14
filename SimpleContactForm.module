@@ -274,7 +274,7 @@ class SimpleContactForm extends WireData implements Module {
 
     // add hidden field to save current timestamp
     $field = $this->modules->get('InputfieldHidden');
-    $field->label = 'Date';
+    $field->skipLabel = Inputfield::skipLabelBlank;
     $field->attr('name+id', 'scf-date');
     $field->attr('value', time());
     $field->required = 1;
