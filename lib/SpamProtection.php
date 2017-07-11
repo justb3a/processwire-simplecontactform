@@ -1,6 +1,7 @@
 <?php namespace Jos;
 
-use \ProcessWire\SimpleContactForm as SCF;
+use ProcessWire\WireCSRFException;
+use ProcessWire\SimpleContactForm as SCF;
 
  /**
  * Class SpamProtection
