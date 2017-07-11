@@ -10,8 +10,8 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.2
-* @copyright Copyright (c) 2016
+* @version 1.0.3
+* @copyright Copyright (c) 2017
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
 */
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 102,
+      'version' => 103,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
