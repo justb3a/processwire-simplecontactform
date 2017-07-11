@@ -8,6 +8,12 @@ See [ProcessWire Forums - Support Board](https://processwire.com/talk/topic/8254
 **Too long to read:**  
 Install the module, fill in module settings, execute the module: `echo $modules->get('SimpleContactForm')->render();`.
 
+### FAQ
+
+- [How to overwrite classes and markup][1]
+- [How to translate the spam message][2]
+- [How to add a custom success message][3]
+
 ## Module Settings
 
 Fill in module settings, add all fields you want to attach to the form. You could either use existing fields or create new ones.
@@ -155,7 +161,6 @@ echo $scf->render($options);
 
 To get an overview of what's possible, have a look at [How to overwrite classes and markup][1]
 
-
 ### More options for email templates, emailTo, ..
 
 You have the full ProcessWire API available. Feel free to add any value you want to!
@@ -205,3 +210,5 @@ $this->addHookBefore('SimpleContactForm::processValidation', function(HookEvent 
 ```
 
 [1]: https://github.com/justb3a/processwire-simplecontactform/blob/master/doc/overwrite-classes-and-markup.md 'How to overwrite classes and markup'
+[2]: https://github.com/justb3a/processwire-simplecontactform/blob/master/doc/spam-translate.md 'How to translate the spam message'
+[3]: https://github.com/justb3a/processwire-simplecontactform/blob/master/doc/success-message.md 'How to add a custom success message'

@@ -69,4 +69,60 @@ static protected $defaultClasses = array(
 );
 ```
 
+## Trouble Shooting
+
+Normally you're able to override the markup on a per-Intputfield basis like mentioned above:
+
+```php
+'markup' => array(
+   // @see: https://github.com/processwire/ProcessWire/blob/master/wire/core/InputfieldWrapper.php#L44
+  'InputfieldSubmit' => array(
+    // any of the properties above to override on a per-Inputifeld basis
+  )
+),
+```
+
+Example:
+
+```php
+$scf = $modules->get('SimpleContactForm');
+
+$options = array(
+  'btnClass' => 'btn btn-blue btn-effect',
+  'btnText' => 'Send',
+  'classes' => array(
+    'item' => 'input-field'
+  )
+);
+
+$content .= $scf->render($options);
+```
+
+However this doesn't seem to work in some cases (using InputfielSubmit or InputfieldButton).  
+But you can override the `render` function of the specific class, in this example `InputfieldSubmit` (for example in `init.php`):
+
+```php
+$this->addHook('InputfieldSubmit::render', function(HookEvent $event) {
+  if ($this->page->template->name === 'contact') { // adapt template name to compare with
+    $parent = (object)$event->object;
+    $attrs  = $parent->getAttributesString();
+    $value = $parent->entityEncode($parent->attr('value'));
+    $out = "<button $attrs><span><span>$value</span></span></button>";
+    $event->return = $out; 
+  }
+});
+```
+
+One more example:
+
+```php
+$this->addHookBefore('Inputfield::render', function(HookEvent $event) {
+  if ($this->page->template->name === 'contact') { // adapt template name to compare with
+    $inputfield = $event->object;
+    $inputfield->addClass('col-sm-8');
+    $event->return = $inputfield;
+  }
+});
+```
+
 [1]: https://github.com/processwire/ProcessWire/blob/master/wire/core/InputfieldWrapper.php#L44 'ProcessWire master'
