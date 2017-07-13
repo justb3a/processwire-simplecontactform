@@ -1,13 +1,13 @@
 <?php namespace Jos;
 
-use \ProcessWire\SimpleContactForm as SCF;
+use ProcessWire\SimpleContactForm as SCF;
+use ProcessWire\WireCSRFException;
 
  /**
  * Class SpamProtection
  *
  * @author Tabea David <info@justonestep.de>
- * @version 1.0.0
- * @copyright Copyright (c) 2016
+ * @copyright Copyright (c) 2017
  * @filesource
  */
 
