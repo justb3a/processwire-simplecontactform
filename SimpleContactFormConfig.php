@@ -16,7 +16,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'emailMessage' => '',
       'emailServer' => 'noreply@server.com',
       'emailReplyTo' => '',
-      'allFields' => '',
+      'allFields' => array(),
       'redirectPage' => '',
       'saveMessages' => false,
       'saveMessagesParent' => false,
