@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.3
+* @version 1.0.4
 * @copyright Copyright (c) 2017
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -92,6 +92,8 @@ class SimpleContactForm extends WireData implements Module {
    */
   static protected $classes = array(
     'form' => 'form  js-simplecontactform', // additional clases for inputfieldform (optional)
+    'form_error' => 'form--error--message',
+    'form_success' => 'form--success--message',
     'list' => 'fields',
     'list_clearfix' => 'clearfix',
     'item' => 'form__item form__item--{name}',
@@ -216,12 +218,12 @@ class SimpleContactForm extends WireData implements Module {
             $spamProtector->getAnimal(),
             $spamProtector->getFruit()
           ));
-          $form->appendMarkup .= '<p class="form--error--message">' . $form->getErrors()[0] . '</p>';
+          $form->appendMarkup .= "<p class='{$form->getClasses()['form_error']}'>{$form->getErrors()[0]}</p>";
           $d = $form->get('scf-date');
           $d->attr('value', time());
         }
       } else {
-          $form->appendMarkup .= "<p class='form--error--message'>{$this->errorMessage}</p>";
+          $form->appendMarkup .= "<p class='{$form->getClasses()['form_error']}'>{$this->errorMessage}</p>";
       }
 
       // send mail
@@ -233,7 +235,7 @@ class SimpleContactForm extends WireData implements Module {
           $this->session->redirect($this->pages->get($p)->url);
         } else {
           $text = $this->_('Your contact request has been send successfully!');
-          $out = "<p class='form--success--message'>{$this->successMessage}</p>";
+          $out = "<p class='{$form->getClasses()['form_success']}'>{$this->successMessage}</p>";
         }
       }
     }

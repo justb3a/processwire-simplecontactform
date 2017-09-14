@@ -1,5 +1,10 @@
 # Changelog
 
+### 1.0.4 (2017-09-14)
+
+- extend option `classes`
+- allows customization of classes for form error and success
+
 ### 1.0.3 (2017-05-14)
 
 - corrects typo in success message: **The translation string has been changed, some may need to translate it again!** // thanks @szabesz
