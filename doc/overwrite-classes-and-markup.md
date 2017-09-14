@@ -31,17 +31,17 @@ Below is the list of all available customization options copied from [ProcessWir
  *
  */
 static protected $defaultMarkup = array(
-  'list' => "<ul {attrs}>{out}</ul>",
-  'item' => "<li {attrs}>{out}</li>", 
-  'item_label' => "<label class='InputfieldHeader ui-widget-header{class}' for='{for}'>{out}</label>",
-  'item_label_hidden' => "<label class='InputfieldHeader InputfieldHeaderHidden ui-widget-header{class}'><span>{out}</span></label>",
-  'item_content' => "<div class='InputfieldContent ui-widget-content{class}'>{out}</div>", 
-  'item_error' => "<p class='InputfieldError ui-state-error'><i class='fa fa-fw fa-flash'></i><span>{out}</span></p>",
-  'item_description' => "<p class='description'>{out}</p>", 
-  'item_head' => "<h2>{out}</h2>", 
-  'item_notes' => "<p class='notes'>{out}</p>",
-  'item_icon' => "<i class='fa fa-fw fa-{name}'></i> ",
-  'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
+  'list' => "{out}\n",
+  'item' => "\n\t<div {attrs}>\n{out}\n\t</div>",
+  'item_label' => "\n\t\t<label class='form__item--label' for='{for}'>{out}</label>",
+  'item_label_hidden' => "\n\t\t<label class='field__header field__header--hidden {class}'>{out}</label>",
+  'item_content' => "{out}",
+  'item_error' => "\n<p class='field--error--message'>{out}</p>",
+  'item_description' => "\n<p class='field__description'>{out}</p>",
+  'item_head' => "\n<h2>{out}</h2>",
+  'item_notes' => "\n<p class='field__notes'>{out}</p>",
+  'item_icon' => "",
+  'item_toggle' => "",
   // ALSO: 
   // InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
 );
@@ -51,19 +51,21 @@ static protected $defaultMarkup = array(
  *
  */
 static protected $defaultClasses = array(
-  'form' => '', // additional clases for InputfieldForm (optional)
-  'list' => 'Inputfields',
-  'list_clearfix' => 'ui-helper-clearfix', 
-  'item' => 'Inputfield {class} Inputfield_{name} ui-widget',
-  'item_label' => '', // additional classes for InputfieldHeader (optional)
-  'item_content' => '',  // additional classes for InputfieldContent (optional)
-  'item_required' => 'InputfieldStateRequired', // class is for Inputfield
-  'item_error' => 'ui-state-error InputfieldStateError', // note: not the same as markup[item_error], class is for Inputfield
-  'item_collapsed' => 'InputfieldStateCollapsed',
-  'item_column_width' => 'InputfieldColumnWidth',
-  'item_column_width_first' => 'InputfieldColumnWidthFirst',
-  'item_show_if' => 'InputfieldStateShowIf',
-  'item_required_if' => 'InputfieldStateRequiredIf'
+  'form' => 'form  js-simplecontactform', // additional clases for inputfieldform (optional)
+  'form_error' => 'form--error--message',
+  'form_success' => 'form--success--message',
+  'list' => 'fields',
+  'list_clearfix' => 'clearfix',
+  'item' => 'form__item form__item--{name}',
+  'item_label' => '', // additional classes for inputfieldheader (optional)
+  'item_content' => '',  // additional classes for inputfieldcontent (optional)
+  'item_required' => 'field--required', // class is for inputfield
+  'item_error' => 'field--error', // note: not the same as markup[item_error], class is for inputfield
+  'item_collapsed' => 'field--collapsed',
+  'item_column_width' => 'field__column',
+  'item_column_width_first' => 'field__column--first',
+  'item_show_if' => 'field--show-if',
+  'item_required_if' => 'field--required-if'
   // ALSO: 
   // InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
 );
