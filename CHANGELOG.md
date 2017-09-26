@@ -1,5 +1,12 @@
 # Changelog
 
+### 1.0.5 (2017-09-26)
+
+- exclude checkbox fields (if unchecked) from spam count
+  - because it's a standard browser behaviour that the value of a checkbox is only sent if the checkbox was checked
+  - this leads to a mismatch while counting fields
+  - the number of submitted fields does not match the number of fields which are present in the form
+
 ### 1.0.4 (2017-09-14)
 
 - extend option `classes`

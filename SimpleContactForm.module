@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.4
+* @version 1.0.5
 * @copyright Copyright (c) 2017
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 103,
+      'version' => 105,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -194,17 +194,18 @@ class SimpleContactForm extends WireData implements Module {
         $spamProtector = new SpamProtection();
 
         // exclude markup fields from spam count
-        $markupFields = 0;
+        // AND exclude checkbox fields (if unchecked) from spam count
+        // BECAUSE it's a standard browser behaviour that the value of a checkbox is only sent if the checkbox was checked
+        $excludeFields = 0;
         foreach ($this->allFields as $inputfield) {
           if ($field = $this->fields->get($inputfield)) {
-            if ($field->type instanceof FieldtypeFieldsetOpen || $field->type instanceof FieldtypeFieldsetTabOpen) {
-              $markupFields++;
-            }
+            if ($field->type instanceof FieldtypeFieldsetOpen || $field->type instanceof FieldtypeFieldsetTabOpen) $excludeFields++;
+            if ($field->type instanceof FieldtypeCheckbox && !$this->input->post->{$field->name}) $excludeFields++;
           }
         }
 
         $spamProtector
-          ->setCount(count($this->allFields) - $markupFields + count(self::$spamFields))
+          ->setCount(count($this->allFields) - $excludeFields + count(self::$spamFields))
           ->setTimeRange($this->antiSpamTimeMin, $this->antiSpamTimeMax)
           ->setSaveMessages($this->saveMessages)
           ->setExcludeIpAdresses($this->antiSpamExcludeIps)
