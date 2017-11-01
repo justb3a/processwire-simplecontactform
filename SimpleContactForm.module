@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.5
+* @version 1.0.6
 * @copyright Copyright (c) 2017
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 105,
+      'version' => 106,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -299,7 +299,7 @@ class SimpleContactForm extends WireData implements Module {
    *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
-   *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
+   *   saveMessages, saveMessagesParent, saveMessagesTemplate, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
    * @return string
@@ -314,7 +314,7 @@ class SimpleContactForm extends WireData implements Module {
    *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
-   *   saveMessages, saveMessagesParent, markup, classes, prependMarkup, appendMarkup
+   *   saveMessages, saveMessagesParent, saveMessagesTemplate, markup, classes, prependMarkup, appendMarkup
    *
    * @param array $options
    * @return string
@@ -398,6 +398,10 @@ class SimpleContactForm extends WireData implements Module {
 
         case 'saveMessagesParent':
           $this->saveMessagesParent = $value;
+          break;
+
+        case 'saveMessagesTemplate':
+          $this->saveMessagesTemplate = $value;
           break;
       }
     }
@@ -489,7 +493,7 @@ class SimpleContactForm extends WireData implements Module {
     $pageName = implode(' ', $name);
 
     $p = new Page();
-    $p->template = self::SM_TEMPLATE_NAME;
+    $p->template = $this->saveMessagesTemplate;
     $p->parent = wire('pages')->get($this->saveMessagesParent);
     $p->name = $this->sanitizer->pageName($pageName, true);
     $p->title = $pageName;

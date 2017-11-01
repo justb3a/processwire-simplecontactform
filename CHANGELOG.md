@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.0.6 (2017-11-01)
+
+- add possibility to specify a template in which the form data should be saved
+
 ### 1.0.5 (2017-09-26)
 
 - exclude checkbox fields (if unchecked) from spam count
