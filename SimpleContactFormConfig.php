@@ -9,6 +9,8 @@ class SimpleContactFormConfig extends ModuleConfig {
    * array Default config values
    */
   public function getDefaults() {
+    $saveMessagesTemplate = $this->templates->get('simple_contact_form_messages');
+
     return array(
       'sendEmails' => true,
       'emailTo' => '',
@@ -20,6 +22,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'redirectPage' => '',
       'saveMessages' => false,
       'saveMessagesParent' => false,
+      'saveMessagesTemplate' => $saveMessagesTemplate ? $saveMessagesTemplate->id : null,
       'saveMessagesScheme' => '',
       'antiSpamTimeMin' => '1',
       'antiSpamTimeMax' => '300',
@@ -123,6 +126,21 @@ class SimpleContactFormConfig extends ModuleConfig {
     $field->label = __('Select a parent for items');
     $field->description = __('All items created and managed will live under the parent you select here.');
     $field->notes = __('If no parent is selected, items will be placed as children of the root page (not recommended).');
+    $field->required = 1;
+    $field->requiredIf = 'saveMessages=1';
+    $field->showIf = 'saveMessages=1';
+    $field->columnWidth = 50;
+    $fieldset->add($field);
+
+    // save messages template field
+    $field = $this->modules->get('InputfieldSelect');
+    $field->name = 'saveMessagesTemplate';
+    $field->label = __('Save messages template');
+    $field->description = __('Choose the template, that is used to save messages.');
+    foreach ($this->templates->getAll() as $key => $template) {
+      if ($template->flags && Template::flagSystem) continue;
+      $field->addOption($key, $template);
+    }
     $field->required = 1;
     $field->requiredIf = 'saveMessages=1';
     $field->showIf = 'saveMessages=1';

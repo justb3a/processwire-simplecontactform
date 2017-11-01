@@ -132,32 +132,33 @@ echo $scf->render($options);
 
 ### Available Keys
 
-| key                | type    | description                                                                                                                             |
-|--------------------|---------|---------------------------------------------------------------------------------------------------------------------------------------- |
-| allFields          | string  | comma-separated list of all fields                                                                                                      |
-| submitName         | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names  |
-| btnClass           | string  | add custom submit button class(es), defaults to `button`                                                                                |
-| btnText            | string  | add custom submit button text, defaults to `Send`                                                                                       |
-| action             | string  | set specific form action, defaults to same page './'                                                                                    |
-| sendEmails         | boolean | whether Emails should be sent                                                                                                           |
-| redirectPage       | integer | Redirect to a specific page after successfull submission. OPTIONAL: If you prefer to stay on the same page, just leave this field empty.|
-| emailMessage       | string  | email message                                                                                                                           |
-| successMessage     | string  | success message                                                                                                                         |
-| errorMessage       | string  | error message                                                                                                                           |
-| emailAddMessage    | string  | email message                                                                                                                           |
-| emailSubject       | string  | email subject                                                                                                                           |
-| emailTo            | string  | email address of recipient                                                                                                              |
-| emailServer        | string  | server address                                                                                                                          |
-| emailAdd           | boolean | set this to true if you want to send more than one email                                                                                |
-| emailAddSubject    | string  | email subject                                                                                                                           |
-| emailAddTo         | string  | email to                                                                                                                                |
-| emailAddReplyTo    | string  | email reply to                                                                                                                          |
-| saveMessages       | boolean | whether to save received messages                                                                                                       |
-| saveMessagesParent | integer | All items created and managed will live under the parent you select here                                                                |
-| markup             | array   | overwrite markup                                                                                                                        |
-| classes            | array   | overwrite classes                                                                                                                       |
-| prependMarkup      | string  | prepend some markup/content                                                                                                             |
-| appendMarkup       | string  | append some markup/content                                                                                                              |
+| key                  | type    | description                                                                                                                             |
+|----------------------|---------|---------------------------------------------------------------------------------------------------------------------------------------- |
+| allFields            | string  | comma-separated list of all fields                                                                                                      |
+| submitName           | string  | if you use more than one form at one page, you have to pass the submit button name. That means, you have to use different submit names  |
+| btnClass             | string  | add custom submit button class(es), defaults to `button`                                                                                |
+| btnText              | string  | add custom submit button text, defaults to `Send`                                                                                       |
+| action               | string  | set specific form action, defaults to same page './'                                                                                    |
+| sendEmails           | boolean | whether Emails should be sent                                                                                                           |
+| redirectPage         | integer | Redirect to a specific page after successfull submission. OPTIONAL: If you prefer to stay on the same page, just leave this field empty.|
+| emailMessage         | string  | email message                                                                                                                           |
+| successMessage       | string  | success message                                                                                                                         |
+| errorMessage         | string  | error message                                                                                                                           |
+| emailAddMessage      | string  | email message                                                                                                                           |
+| emailSubject         | string  | email subject                                                                                                                           |
+| emailTo              | string  | email address of recipient                                                                                                              |
+| emailServer          | string  | server address                                                                                                                          |
+| emailAdd             | boolean | set this to true if you want to send more than one email                                                                                |
+| emailAddSubject      | string  | email subject                                                                                                                           |
+| emailAddTo           | string  | email to                                                                                                                                |
+| emailAddReplyTo      | string  | email reply to                                                                                                                          |
+| saveMessages         | boolean | whether to save received messages                                                                                                       |
+| saveMessagesParent   | integer | All items created and managed will live under the parent you select here                                                                |
+| saveMessagesTemplate | integer | Template for received messages                                                                                                          |
+| markup               | array   | overwrite markup                                                                                                                        |
+| classes              | array   | overwrite classes                                                                                                                       |
+| prependMarkup        | string  | prepend some markup/content                                                                                                             |
+| appendMarkup         | string  | append some markup/content                                                                                                              |
 
 To get an overview of what's possible, have a look at [How to overwrite classes and markup][1]
 
