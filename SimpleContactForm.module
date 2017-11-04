@@ -563,7 +563,7 @@ class SimpleContactForm extends WireData implements Module {
     $newFields = $configData['addFields'];
     $allFields = $configData['allFields'];
 
-    foreach (explode(',', $newFields) as $name) {
+    foreach (explode(',', preg_replace('/\s/', '', $newFields)) as $name) {
       if (is_null($this->fields->get("scf_$name"))) {
         $f = new Field();
         $f->type = $this->modules->get('FieldtypeText');
