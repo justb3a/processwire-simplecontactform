@@ -264,6 +264,7 @@ class SimpleContactForm extends WireData implements Module {
       foreach ($this->allFields as $fieldname) {
         if ($field = $this->fields->get($fieldname)) {
           $inputfield = $field->getInputfield($this->page);
+          $inputfield->useLanguages = false;
           $form->append($inputfield);
         }
       }
