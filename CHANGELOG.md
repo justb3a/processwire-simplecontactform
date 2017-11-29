@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.0.7 (2017-11-29)
+
+- exclude email and password confirmation fields from spam count
+
 ### 1.0.6 (2017-11-01)
 
 - add possibility to specify a template in which the form data should be saved

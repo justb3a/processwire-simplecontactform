@@ -79,6 +79,8 @@ ByeBye
 
 This module creates a log file named **simplecontactform-log.txt**.
 
+> Admin > Setup > Logs > Simplecontactform-log
+
 In this file every action is logged and marked with ```[SUCCESS]``` or ```[FAILURE]``` 
 
 If a message is treated as spam an entry in the spam log file will be added containing the reason why.

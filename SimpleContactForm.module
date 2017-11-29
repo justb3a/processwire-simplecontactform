@@ -10,7 +10,7 @@ use \Jos\Mailer;
 * See README.md for usage instructions.
 *
 * @author Tabea David <info@justonestep.de>
-* @version 1.0.6
+* @version 1.0.7
 * @copyright Copyright (c) 2017
 * @see https://github.com/justonestep/processwire-simplecontactform
 * @see http://www.processwire.com
@@ -30,7 +30,7 @@ class SimpleContactForm extends WireData implements Module {
     return array(
       'title' => 'Simple Contact Form',
       'summary' => 'Just a simple contact form.',
-      'version' => 106,
+      'version' => 107,
       'href' => 'https://github.com/justonestep/processwire-simplecontactform',
       'singular' => true,
       'autoload' => true,
@@ -195,12 +195,16 @@ class SimpleContactForm extends WireData implements Module {
 
         // exclude markup fields from spam count
         // AND exclude checkbox fields (if unchecked) from spam count
+        // AND exclude password confirmation field from spam count BUT the other way
+        // AND exclude verify email BUT the other way
         // BECAUSE it's a standard browser behaviour that the value of a checkbox is only sent if the checkbox was checked
         $excludeFields = 0;
         foreach ($this->allFields as $inputfield) {
           if ($field = $this->fields->get($inputfield)) {
             if ($field->type instanceof FieldtypeFieldsetOpen || $field->type instanceof FieldtypeFieldsetTabOpen) $excludeFields++;
             if ($field->type instanceof FieldtypeCheckbox && !$this->input->post->{$field->name}) $excludeFields++;
+            if ($field->type instanceof FieldtypePassword) $excludeFields--;
+            if ($field->type instanceof FieldtypeEmail && $field->confirm) $excludeFields--;
           }
         }
 
@@ -682,17 +686,10 @@ class SimpleContactForm extends WireData implements Module {
   protected function validateParent($configData) {
     // add default for save messages parent
     if (!$configData['saveMessagesParent']) $configData['saveMessagesParent'] = $this->config->rootPageID;
-    // check if selected parent allows children
-    $pTemplate = $this->pages->get($configData['saveMessagesParent'])->template;
-    // noChildren must be 0
-    if ($pTemplate->noChildren > 0) {
+
+    // check whether selected parent allows children (noChildren must be 0)
+    if ($this->pages->get($configData['saveMessagesParent'])->template->noChildren > 0) {
       $this->log->error($this->_('Please choose another parent or change the belonging template. It must allow children.'));
-    } elseif (count($pTemplate->childTemplates) > 0 && !in_array($configData['saveMessagesParent'], $pTemplate->childTemplates)) {
-      // if childTemplates is set, it must contain parent->template->id
-      $this->log->error(sprintf(
-        $this->_("Please choose another parent or change the belonging template. AllowedTemplates must include `%s` template."),
-        self::SM_TEMPLATE_NAME
-      ));
     }
   }
 
