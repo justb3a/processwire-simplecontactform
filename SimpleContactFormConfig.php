@@ -20,6 +20,7 @@ class SimpleContactFormConfig extends ModuleConfig {
       'emailReplyTo' => '',
       'allFields' => array(),
       'redirectPage' => '',
+      'redirectSamePage' => true,
       'saveMessages' => false,
       'saveMessagesParent' => false,
       'saveMessagesTemplate' => $saveMessagesTemplate ? $saveMessagesTemplate->id : null,
@@ -195,6 +196,15 @@ class SimpleContactFormConfig extends ModuleConfig {
     $fieldset->add($field);
 
     $inputfields->add($fieldset);
+
+    // redirect to the same page to get rid of POST vars
+    $field = $this->modules->get('InputfieldCheckbox');
+    $field->name = 'redirectSamePage';
+    $field->label = __('Redirect to the same page after successfull submission');
+    $field->description = __('OPTIONAL: If you prefer to stay on the same page without adding url parameter, just leave this field empty. Redirecting to the same page prevents form resubmission.');
+    $field->value = 1;
+    $field->columnWidth = 50;
+    $fieldset->add($field);
 
     // redirect to a specific URL after successfull submission
     $field = $this->modules->get('InputfieldPageListSelect');
