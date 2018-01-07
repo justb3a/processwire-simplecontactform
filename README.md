@@ -142,6 +142,7 @@ echo $scf->render($options);
 | btnText              | string  | add custom submit button text, defaults to `Send`                                                                                       |
 | action               | string  | set specific form action, defaults to same page './'                                                                                    |
 | sendEmails           | boolean | whether Emails should be sent                                                                                                           |
+| redirectSamePage     | boolean | Redirect to the same page after successfull submission to prevent form resubmission. OPTIONAL.                                          |
 | redirectPage         | integer | Redirect to a specific page after successfull submission. OPTIONAL: If you prefer to stay on the same page, just leave this field empty.|
 | emailMessage         | string  | email message                                                                                                                           |
 | successMessage       | string  | success message                                                                                                                         |

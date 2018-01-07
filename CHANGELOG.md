@@ -1,5 +1,9 @@
 # Changelog
 
+### 1.0.8 (2018-01-07)
+
+- add option to redirect to same page to prevent form resubmission
+
 ### 1.0.7 (2017-11-29)
 
 - exclude email and password confirmation fields from spam count

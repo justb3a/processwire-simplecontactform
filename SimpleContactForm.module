@@ -173,6 +173,16 @@ class SimpleContactForm extends WireData implements Module {
   }
 
   /**
+   * Render Success Message
+   *
+   * @param Form $form
+   * @return string
+   */
+  private function renderSuccessMessage($form) {
+    return "<p class='{$form->getClasses()['form_success']}'>{$this->successMessage}</p>";
+  }
+
+  /**
    * Render Form
    *
    * @param array $options
@@ -184,7 +194,7 @@ class SimpleContactForm extends WireData implements Module {
     $this->setClasses($form, $options);
 
     // on form submit
-    if ($this->input->post->{$this->submitName}) {
+    if ($this->input->post->{$this->submitName} && !$this->input->get->success) {
       // process form input and validate fields
       $form->processInput($this->input->post);
       $this->processValidation($form);
@@ -236,14 +246,17 @@ class SimpleContactForm extends WireData implements Module {
         if ($this->sendEmails) $this->sendMail();
         if ($this->saveMessages) $this->saveMessage();
 
-        if ($p = $this->redirectPage) {
+        if ($this->redirectSamePage) {
+          $this->session->redirect($this->page->url . '?success=1');
+        } elseif ($p = $this->redirectPage) {
           $this->session->redirect($this->pages->get($p)->url);
         } else {
-          $text = $this->_('Your contact request has been send successfully!');
-          $out = "<p class='{$form->getClasses()['form_success']}'>{$this->successMessage}</p>";
+          $out = $this->renderSuccessMessage($form);
         }
       }
     }
+
+    if ($this->input->get->success) $out = $this->renderSuccessMessage($form);
 
     return isset($out) ? $out : $form->render();
   }
@@ -301,7 +314,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render
    * available keys:
-   *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
+   *   allFields, redirectSamePage, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, saveMessagesTemplate, markup, classes, prependMarkup, appendMarkup
@@ -316,7 +329,7 @@ class SimpleContactForm extends WireData implements Module {
   /**
    * Render further instance
    * available keys:
-   *   allFields, redirectPage, submitName, actionPage, btnClass, btnText
+   *   allFields, redirectSamePage, redirectPage, submitName, actionPage, btnClass, btnText
    *   emailMessage, emailAddMessage, successMessage, errorMessage
    *   sendEmails, emailSubject, emailTo, emailServer, emailReplyTo, emailAdd, emailAddSubject, emailAddTo, emailAddReplyTo
    *   saveMessages, saveMessagesParent, saveMessagesTemplate, markup, classes, prependMarkup, appendMarkup
@@ -334,6 +347,10 @@ class SimpleContactForm extends WireData implements Module {
           $allFieldsExtended = explode(',', $value);
           foreach (self::$additionalFields as $f) $allFieldsExtended[] = $f;
           $this->allFieldsExtended = $allFieldsExtended;
+          break;
+
+        case 'redirectSamePage':
+          $this->redirectSamePage = $value;
           break;
 
         case 'redirectPage':
@@ -448,7 +465,7 @@ class SimpleContactForm extends WireData implements Module {
       $text = implode("\r\n", $message);
     }
 
-    return  $text;
+    return $text;
   }
 
   /**
